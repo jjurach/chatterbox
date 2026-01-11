@@ -94,6 +94,57 @@ The server will:
 - Initialize a LangChain agent with conversation memory (last 3 exchanges)
 - Use the `get_time` skill to answer time-related queries
 
+### Testing with the CLI Test Harness
+
+The `chatterbox-test` CLI tool allows you to send text directly to the backend as if it were a transcribed voice command, without needing the ESP32 device or audio input.
+
+#### Installation
+
+First, install the package in editable mode from the backend directory:
+
+```bash
+pip install -e .
+```
+
+This will make the `chatterbox-test` command available in your environment.
+
+#### Basic Usage
+
+Send a simple text query to the server:
+
+```bash
+chatterbox-test "What time is it?"
+```
+
+The tool will connect to the server (default `localhost:10700`), send the transcript, and print the response.
+
+#### Advanced Usage
+
+Connect to a different host and port:
+
+```bash
+chatterbox-test "What time is it?" --host 192.168.1.100 --port 10700
+```
+
+Enable debug logging to see detailed connection information:
+
+```bash
+chatterbox-test "What time is it?" --debug
+```
+
+#### Example Output
+
+```bash
+$ chatterbox-test "What time is it?"
+backend.src.cli - INFO - Connecting to localhost:10700...
+backend.src.cli - INFO - Connected to server
+backend.src.cli - INFO - Sending transcript: What time is it?
+backend.src.cli - INFO - Waiting for response...
+The current time is 3:45 PM
+backend.src.cli - INFO - Received response: The current time is 3:45 PM
+backend.src.cli - INFO - Connection closed
+```
+
 ### Debug Mode
 
 Enable debug mode to see detailed logging of LangChain operations and Wyoming events:
