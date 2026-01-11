@@ -21,8 +21,8 @@ from typing import Any
 
 from langchain_core import globals as langchain_globals
 
-from backend.src.config import get_settings
-from backend.src.server import VoiceAssistantServer
+from src.config import get_settings
+from src.server import VoiceAssistantServer
 
 # Load configuration
 settings = get_settings()

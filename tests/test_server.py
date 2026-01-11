@@ -12,9 +12,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.src.agent import VoiceAssistantAgent
-from backend.src.server import VoiceAssistantServer
-from backend.src.tools import get_available_tools, get_time
+from src.agent import VoiceAssistantAgent
+from src.server import VoiceAssistantServer
+from src.tools import get_available_tools, get_time
 
 
 @pytest.fixture

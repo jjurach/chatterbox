@@ -6,11 +6,11 @@ A monorepo for bootstrapping a voice assistant on the ESP32-S3-BOX-3B hardware u
 
 ```
 .
-├── backend/                      # Python Wyoming server for audio processing
-│   ├── src/
-│   │   └── main.py              # Main Wyoming server implementation
-│   └── tests/
-│       └── test_server.py       # Pytest tests for the server
+├── src/                          # Python Wyoming server for audio processing
+│   ├── main.py                  # Main Wyoming server implementation
+│   └── ...                       # Other server modules
+├── tests/                        # Pytest tests for the server
+│   └── test_server.py           # Server tests
 ├── firmware/                     # ESPHome configurations for the ESP32-S3-BOX-3B
 │   └── voice-assistant.yaml     # ESPHome device configuration
 ├── requirements.txt              # Production dependencies
@@ -85,7 +85,13 @@ Keep this terminal running in the background while the Wyoming server is active.
 Start the Wyoming server on your Ubuntu host:
 
 ```bash
-python backend/src/main.py
+chatterbox3b-server
+```
+
+Or run directly with Python:
+
+```bash
+python -m src.main
 ```
 
 The server will:
@@ -96,24 +102,24 @@ The server will:
 
 ### Testing with the CLI Test Harness
 
-The `chatterbox-test` CLI tool allows you to send text directly to the backend as if it were a transcribed voice command, without needing the ESP32 device or audio input.
+The `chatterbox3b-client` CLI tool allows you to send text directly to the server as if it were a transcribed voice command, without needing the ESP32 device or audio input.
 
 #### Installation
 
-First, install the package in editable mode from the backend directory:
+First, install the package in editable mode:
 
 ```bash
 pip install -e .
 ```
 
-This will make the `chatterbox-test` command available in your environment.
+This will make the `chatterbox3b-client` command available in your environment.
 
 #### Basic Usage
 
 Send a simple text query to the server:
 
 ```bash
-chatterbox-test "What time is it?"
+chatterbox3b-client "What time is it?"
 ```
 
 The tool will connect to the server (default `localhost:10700`), send the transcript, and print the response.
@@ -123,26 +129,26 @@ The tool will connect to the server (default `localhost:10700`), send the transc
 Connect to a different host and port:
 
 ```bash
-chatterbox-test "What time is it?" --host 192.168.1.100 --port 10700
+chatterbox3b-client "What time is it?" --host 192.168.1.100 --port 10700
 ```
 
 Enable debug logging to see detailed connection information:
 
 ```bash
-chatterbox-test "What time is it?" --debug
+chatterbox3b-client "What time is it?" --debug
 ```
 
 #### Example Output
 
 ```bash
-$ chatterbox-test "What time is it?"
-backend.src.cli - INFO - Connecting to localhost:10700...
-backend.src.cli - INFO - Connected to server
-backend.src.cli - INFO - Sending transcript: What time is it?
-backend.src.cli - INFO - Waiting for response...
+$ chatterbox3b-client "What time is it?"
+src.client - INFO - Connecting to localhost:10700...
+src.client - INFO - Connected to server
+src.client - INFO - Sending transcript: What time is it?
+src.client - INFO - Waiting for response...
 The current time is 3:45 PM
-backend.src.cli - INFO - Received response: The current time is 3:45 PM
-backend.src.cli - INFO - Connection closed
+src.client - INFO - Received response: The current time is 3:45 PM
+src.client - INFO - Connection closed
 ```
 
 ### Debug Mode
@@ -150,7 +156,7 @@ backend.src.cli - INFO - Connection closed
 Enable debug mode to see detailed logging of LangChain operations and Wyoming events:
 
 ```bash
-python backend/src/main.py --debug
+chatterbox3b-server --debug
 ```
 
 In debug mode, the server will log:
@@ -168,10 +174,10 @@ In debug mode, the server will log:
 Example debug output:
 
 ```
-2025-01-11T10:30:45.123456 - backend.src.server - INFO - Server debug mode enabled
-2025-01-11T10:30:45.234567 - backend.src.agent - INFO - Debug mode enabled with observability logging
-2025-01-11T10:30:46.345678 - backend.src.server - INFO - [2025-01-11T10:30:46.345678] [WYOMING] AudioStart event received
-2025-01-11T10:30:48.456789 - backend.src.server - INFO - [2025-01-11T10:30:48.456789] [WYOMING] Transcript received: What time is it?
+2025-01-11T10:30:45.123456 - src.server - INFO - Server debug mode enabled
+2025-01-11T10:30:45.234567 - src.agent - INFO - Debug mode enabled with observability logging
+2025-01-11T10:30:46.345678 - src.server - INFO - [2025-01-11T10:30:46.345678] [WYOMING] AudioStart event received
+2025-01-11T10:30:48.456789 - src.server - INFO - [2025-01-11T10:30:48.456789] [WYOMING] Transcript received: What time is it?
 [LLM USAGE] Tokens: 42 | Estimated Value: $0.000025
 ```
 
@@ -198,7 +204,7 @@ pytest -v
 Run tests with coverage:
 
 ```bash
-pytest --cov=backend
+pytest --cov=src
 ```
 
 ### Code Formatting
@@ -206,13 +212,13 @@ pytest --cov=backend
 Format code with Black:
 
 ```bash
-black backend/
+black src/ tests/
 ```
 
 Sort imports with isort:
 
 ```bash
-isort backend/
+isort src/ tests/
 ```
 
 ## Flashing the Device
@@ -308,18 +314,18 @@ Once flashed:
 
 1. Power on the ESP32-S3-BOX-3B
 2. Ensure it's connected to the same WiFi network as your Ubuntu host
-3. Start the Wyoming server: `python backend/src/main.py`
+3. Start the Wyoming server: `chatterbox3b-server`
 4. The device should connect and be ready to process voice commands
 
 ## Architecture
 
 ### Backend Server
 
-The Wyoming server in `backend/src/main.py`:
+The Wyoming server in `src/main.py`:
 - Listens for incoming audio streams from the ESP32-S3-BOX-3B
 - Processes audio using the Wyoming protocol
-- Currently responds with a static "Hello world" TTS response
-- Contains placeholders for LangChain LLM integration
+- Uses LangChain with Ollama for intelligent responses
+- Integrated with the Wyoming protocol for device communication
 
 ### Firmware
 
@@ -410,7 +416,7 @@ The hooks will automatically run on `git commit` and check for:
 ### Project Structure Best Practices
 
 - Use `src/` directory for the main application code
-- Keep tests in `backend/tests/`
+- Keep tests in `tests/`
 - Use type hints (Python 3.10+)
 - Follow PEP 8 with Black for formatting
 
@@ -455,15 +461,15 @@ If the Wyoming server fails to connect to Ollama:
 - Verify the `backend_ip` in `firmware/voice-assistant.yaml` matches your Ubuntu host
 - Ensure both devices are on the same WiFi network
 - Check firewall settings on Ubuntu (port 10700 should be open)
-- Verify the Wyoming server is running: `python backend/src/main.py`
+- Verify the Wyoming server is running: `chatterbox3b-server`
 - Verify Ollama is running in a separate terminal: `ollama run llama3.1:8b`
 
 ### Server Port Already in Use
 
-If port 10700 is already in use, modify `backend/src/main.py`:
+If port 10700 is already in use, set the environment variable before running the server:
 
-```python
-server = VoiceAssistantServer(host="0.0.0.0", port=9999)  # Custom port
+```bash
+CHATTERBOX_PORT=9999 chatterbox3b-server
 ```
 
 Update the port in `firmware/voice-assistant.yaml` accordingly.

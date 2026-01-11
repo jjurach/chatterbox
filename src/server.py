@@ -17,7 +17,7 @@ from wyoming.event import Event
 from wyoming.server import AsyncServer
 from wyoming.tts import Synthesize, SynthesizeVoice
 
-from backend.src.agent import VoiceAssistantAgent
+from src.agent import VoiceAssistantAgent
 
 logger = logging.getLogger(__name__)
 
