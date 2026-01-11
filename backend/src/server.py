@@ -7,6 +7,7 @@ with ESP32 devices and processes audio/text events.
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Optional
 
 import httpx
@@ -42,6 +43,7 @@ class VoiceAssistantServer(AsyncServer):
         ollama_model: str = "llama3.1:8b",
         ollama_temperature: float = 0.7,
         conversation_window_size: int = 3,
+        debug: bool = False,
     ):
         """Initialize the Wyoming voice assistant server.
 
@@ -52,6 +54,7 @@ class VoiceAssistantServer(AsyncServer):
             ollama_model: The Ollama model to use
             ollama_temperature: Model temperature for response generation
             conversation_window_size: Number of messages to keep in memory
+            debug: Enable debug mode with enhanced Wyoming event logging
         """
         super().__init__()
 
@@ -59,6 +62,7 @@ class VoiceAssistantServer(AsyncServer):
         self.host = host or "0.0.0.0"
         self.port = port or 10700
         self.ollama_base_url = ollama_base_url
+        self.debug = debug
 
         # Initialize the agent
         self.agent = VoiceAssistantAgent(
@@ -66,9 +70,12 @@ class VoiceAssistantServer(AsyncServer):
             ollama_model=ollama_model,
             ollama_temperature=ollama_temperature,
             conversation_window_size=conversation_window_size,
+            debug=debug,
         )
 
         logger.info(f"Server initialized on {self.host}:{self.port}")
+        if debug:
+            logger.info("Server debug mode enabled")
 
     async def handle_event(self, event: Event) -> Optional[Event]:
         """Handle incoming Wyoming protocol events.
@@ -82,29 +89,48 @@ class VoiceAssistantServer(AsyncServer):
         Returns:
             An optional response event to send back to the client
         """
+        timestamp = datetime.now().isoformat()
+        event_type = type(event).__name__
+
         # Audio stream events
         if isinstance(event, AudioStart):
             logger.debug("Audio stream started")
+            if self.debug:
+                logger.info(f"[{timestamp}] [WYOMING] AudioStart event received")
             return None
 
         if isinstance(event, AudioChunk):
             logger.debug(f"Received audio chunk: {len(event.audio)} bytes")
+            if self.debug:
+                logger.debug(
+                    f"[{timestamp}] [WYOMING] AudioChunk: {len(event.audio)} bytes"
+                )
             return None
 
         if isinstance(event, AudioStop):
             logger.debug("Audio stream stopped")
+            if self.debug:
+                logger.info(f"[{timestamp}] [WYOMING] AudioStop event received")
             return None
 
         # Speech recognition events
         if isinstance(event, Transcribe):
             logger.debug("Transcription requested")
+            if self.debug:
+                logger.info(f"[{timestamp}] [WYOMING] Transcribe event received")
             return None
 
         if isinstance(event, Transcript):
             logger.info(f"Received transcript: {event.text}")
+            if self.debug:
+                logger.info(
+                    f"[{timestamp}] [WYOMING] Transcript received: {event.text}"
+                )
             return await self._process_transcript(event)
 
-        logger.debug(f"Unhandled event type: {type(event).__name__}")
+        logger.debug(f"Unhandled event type: {event_type}")
+        if self.debug:
+            logger.debug(f"[{timestamp}] [WYOMING] Unhandled event: {event_type}")
         return None
 
     async def _process_transcript(self, transcript: Transcript) -> Optional[Event]:

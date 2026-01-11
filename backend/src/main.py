@@ -13,10 +13,13 @@ Architecture:
     - main.py: Orchestration and entry point
 """
 
+import argparse
 import asyncio
 import logging
 import signal
 from typing import Any
+
+from langchain import globals as langchain_globals
 
 from backend.src.config import get_settings
 from backend.src.server import VoiceAssistantServer
@@ -32,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def main() -> None:
+async def main(debug: bool = False) -> None:
     """Main entry point for the voice assistant.
 
     Handles:
@@ -40,7 +43,15 @@ async def main() -> None:
     2. Creating the server instance
     3. Registering signal handlers for graceful shutdown
     4. Running the server until interrupted
+
+    Args:
+        debug: Enable debug mode with detailed LangChain logging
     """
+    # Enable LangChain debugging if requested
+    if debug:
+        langchain_globals.set_debug(True)
+        logger.info("LangChain debug mode enabled")
+
     # Create server with configuration
     server = VoiceAssistantServer(
         host=settings.host,
@@ -49,6 +60,7 @@ async def main() -> None:
         ollama_model=settings.ollama_model,
         ollama_temperature=settings.ollama_temperature,
         conversation_window_size=settings.conversation_window_size,
+        debug=debug,
     )
 
     # Set up graceful shutdown
@@ -90,4 +102,14 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(
+        description="Wyoming Voice Assistant Server"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode with detailed LangChain logging",
+    )
+    args = parser.parse_args()
+
+    asyncio.run(main(debug=args.debug))

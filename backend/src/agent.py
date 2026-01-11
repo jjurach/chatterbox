@@ -13,6 +13,7 @@ from langchain_classic.agents import initialize_agent, AgentExecutor
 from langchain_classic.memory import ConversationBufferWindowMemory
 from langchain_openai import ChatOpenAI
 
+from backend.src.observability import ObservabilityHandler
 from backend.src.tools import get_available_tools
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ class VoiceAssistantAgent:
         ollama_model: str = "llama3.1:8b",
         ollama_temperature: float = 0.7,
         conversation_window_size: int = 3,
+        debug: bool = False,
     ):
         """Initialize the voice assistant agent.
 
@@ -45,11 +47,13 @@ class VoiceAssistantAgent:
             ollama_model: The model name to use from Ollama
             ollama_temperature: Temperature parameter for response generation (0.0-1.0)
             conversation_window_size: Number of messages to keep in conversation memory
+            debug: Enable debug mode with detailed observability logging
         """
         self.ollama_base_url = ollama_base_url
         self.ollama_model = ollama_model
         self.ollama_temperature = ollama_temperature
         self.conversation_window_size = conversation_window_size
+        self.debug = debug
 
         # Initialize the language model
         self.llm = ChatOpenAI(
@@ -66,6 +70,11 @@ class VoiceAssistantAgent:
             return_messages=True,
         )
 
+        # Set up callbacks for observability
+        callbacks = []
+        if debug:
+            callbacks.append(ObservabilityHandler())
+
         # Get available tools and initialize the agent
         tools = get_available_tools()
         self.agent = initialize_agent(
@@ -75,12 +84,15 @@ class VoiceAssistantAgent:
             memory=self.memory,
             verbose=True,
             handle_parsing_errors=True,
+            callbacks=callbacks,
         )
 
         logger.info(
             f"Agent initialized with model '{ollama_model}' "
             f"at {ollama_base_url}"
         )
+        if debug:
+            logger.info("Debug mode enabled with observability logging")
 
     async def process_input(self, user_input: str) -> str:
         """Process user input through the agent.

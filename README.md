@@ -94,6 +94,42 @@ The server will:
 - Initialize a LangChain agent with conversation memory (last 3 exchanges)
 - Use the `get_time` skill to answer time-related queries
 
+### Debug Mode
+
+Enable debug mode to see detailed logging of LangChain operations and Wyoming events:
+
+```bash
+python backend/src/main.py --debug
+```
+
+In debug mode, the server will log:
+
+- **LangChain Debug Output**: Detailed traces of chain input, agent reasoning, and LLM decisions
+- **Wyoming Events**: Timestamped events for audio streams, transcripts, and device communication
+  - `AudioStart` / `AudioStop`: Audio stream lifecycle
+  - `Transcript`: Speech recognition results with timestamps
+  - Event timestamps in ISO 8601 format for correlation
+- **LLM Usage Metrics**: Token counts and estimated costs based on cloud pricing models
+  - Prompt tokens, completion tokens, total tokens
+  - Estimated cost in USD (using GPT-4o-mini pricing: $0.15 per 1M input tokens, $0.60 per 1M output tokens)
+  - Example output: `[LLM USAGE] Tokens: 150 | Estimated Value: $0.0002`
+
+Example debug output:
+
+```
+2025-01-11T10:30:45.123456 - backend.src.server - INFO - Server debug mode enabled
+2025-01-11T10:30:45.234567 - backend.src.agent - INFO - Debug mode enabled with observability logging
+2025-01-11T10:30:46.345678 - backend.src.server - INFO - [2025-01-11T10:30:46.345678] [WYOMING] AudioStart event received
+2025-01-11T10:30:48.456789 - backend.src.server - INFO - [2025-01-11T10:30:48.456789] [WYOMING] Transcript received: What time is it?
+[LLM USAGE] Tokens: 42 | Estimated Value: $0.000025
+```
+
+This is useful for:
+- Understanding how the agent processes inputs
+- Debugging integration issues between Wyoming and LangChain
+- Monitoring token usage and estimating cloud costs
+- Tracing the full request/response flow
+
 ### Running Tests
 
 Execute the test suite with pytest:
