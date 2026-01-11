@@ -61,7 +61,7 @@ test = [
 
 [project.scripts]
 chatterbox3b-server = "backend.src.main:cli_main"
-chatterbox-test = "backend.src.cli:main"
+chatterbox-client = "backend.src.client:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/chatterbox3b"

@@ -1,12 +1,18 @@
-"""CLI Test Harness for Chatterbox3B Backend.
+"""Client Test Harness for Chatterbox3B Backend.
 
 This module provides a command-line tool to test the Wyoming voice assistant
 backend by sending transcript events directly to the server.
+
+Environment variables:
+  CHATTERBOX_SERVER: Server address in format "host:port"
+  CHATTERBOX_HOST: Server hostname (default: localhost)
+  CHATTERBOX_PORT: Server port (default: 10700)
 """
 
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from typing import Optional
 
@@ -118,10 +124,32 @@ async def test_backend(
 
 
 def main() -> None:
-    """Entry point for the chatterbox-test console script."""
+    """Entry point for the chatterbox-client console script."""
+    # Get defaults from environment variables
+    env_server = os.environ.get("CHATTERBOX_SERVER")
+    default_host = "localhost"
+    default_port = 10700
+
+    if env_server:
+        # Parse CHATTERBOX_SERVER in format "host:port"
+        if ":" in env_server:
+            parts = env_server.rsplit(":", 1)
+            default_host = parts[0]
+            try:
+                default_port = int(parts[1])
+            except ValueError:
+                print(f"Error: Invalid port in CHATTERBOX_SERVER: {env_server}")
+                sys.exit(1)
+        else:
+            default_host = env_server
+    else:
+        # Individual env vars override defaults
+        default_host = os.environ.get("CHATTERBOX_HOST", default_host)
+        default_port = int(os.environ.get("CHATTERBOX_PORT", default_port))
+
     parser = argparse.ArgumentParser(
         description="Test the Chatterbox3B voice assistant backend",
-        prog="chatterbox-test",
+        prog="chatterbox-client",
     )
     parser.add_argument(
         "text",
@@ -129,14 +157,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--host",
-        default="localhost",
-        help="Server host (default: localhost)",
+        default=default_host,
+        help=f"Server host (default: {default_host}, or CHATTERBOX_HOST env var)",
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=10700,
-        help="Server port (default: 10700)",
+        default=default_port,
+        help=f"Server port (default: {default_port}, or CHATTERBOX_PORT env var)",
     )
     parser.add_argument(
         "--debug",
