@@ -1,25 +1,24 @@
+# ESP32-S3-BOX-3B Voice Assistant Configuration
+# Integrates with Wyoming voice assistant protocol
+#
+# Setup Instructions:
+# 1. Get your Ubuntu host IP: hostname -I
+# 2. Replace backend_ip placeholder below
+# 3. Create secrets.yaml with wifi_ssid and wifi_password
+
+packages:
+  # Use official ESP32-S3-BOX-3 package for hardware support
+  esp32_s3_box_3: github://esphome/esphome/esp32_s3_box_3.yaml
+
 substitutions:
   device_name: voice-assistant
   friendly_name: ESP32-S3-BOX-3B Voice Assistant
-  backend_ip: "${BACKEND_IP}"  # Replace with your Ubuntu host IP (get via: hostname -I)
+  backend_ip: "192.168.1.100"  # PLACEHOLDER: Replace with actual IP from hostname -I
 
 esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
   min_version: 2024.6.1
-
-esp32:
-  board: esp32s3box
-  variant: ESP32S3
-  flash_size: 16MB
-
-# Enable logging
-logger:
-  level: DEBUG
-
-# Enable OTA updates
-ota:
-  - platform: esphome
 
 # WiFi configuration
 wifi:
@@ -28,7 +27,15 @@ wifi:
   reboot_timeout: 10min
   fast_connect: true
 
-# API configuration for ESPHome
+# Enable logging
+logger:
+  level: INFO
+
+# Enable OTA (Over-The-Air) updates
+ota:
+  - platform: esphome
+
+# ESPHome API for integration and services
 api:
   services:
     - service: voice_assistant_set_listening
@@ -36,48 +43,19 @@ api:
         enabled: bool
 
 # Voice Assistant Component
-# Configure to use the Wyoming protocol to communicate with your backend server
+# Processes audio from microphone and sends to Wyoming server
 voice_assistant:
   microphone: mic
   speaker: speaker
   use_wake_word: false
 
-# Microphone - ESP32-S3-BOX-3B has built-in I2S microphone
-microphone:
-  - platform: i2s_audio
-    id: mic
-    i2s_din_pin: GPIO46
-    adc_type: external
-    adc_pin: GPIO0
+# Wyoming Protocol Connection
+# Connects to the Python Wyoming server for intelligent voice processing
+external_components:
+  - source: github://esphome/esphome-external-components
+    components:
+      - wyoming
 
-# Speaker - ESP32-S3-BOX-3B has built-in speaker
-speaker:
-  - platform: i2s_audio
-    id: speaker
-    i2s_dout_pin: GPIO8
-    dac_type: external
-    mode: mono
-
-# Display - ESP32-S3-BOX-3B has a built-in screen
-display:
-  - platform: ili9341
-    id: display
-    cs_pin: GPIO39
-    dc_pin: GPIO40
-    sdi_pin: GPIO35
-    sdo_pin: GPIO37
-    scl_pin: GPIO36
-    led_pin: GPIO38
-
-# Wyoming Protocol Service
-# This component connects to the Wyoming server running on your Ubuntu host
-extern_component:
-  source: github://esphome/esphome-external-components
-  components:
-    - wyoming
-
-# Wyoming client configuration
-# Connects to the Python Wyoming server for audio processing
 wyoming:
   host: ${backend_ip}
   port: 10700

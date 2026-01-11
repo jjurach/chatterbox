@@ -142,7 +142,26 @@ This will output something like: `192.168.1.100 172.17.0.1`
 
 Use the first IP (your local network IP).
 
-### Step 2: Update the ESPHome Configuration
+### Step 2.5: Create ESPHome Secrets File
+
+Create a `secrets.yaml` file in the `firmware/` directory with your WiFi credentials:
+
+```bash
+cd firmware
+cp secrets.yaml.example secrets.yaml
+# Edit secrets.yaml with your actual WiFi credentials
+```
+
+Content of `firmware/secrets.yaml`:
+
+```yaml
+wifi_ssid: "YourWiFiNetworkName"
+wifi_password: "YourWiFiPassword"
+```
+
+**Security Note**: The `secrets.yaml` file is ignored by git (included in `.gitignore`). Never commit WiFi credentials to version control.
+
+### Step 3: Update the ESPHome Configuration
 
 Edit `firmware/voice-assistant.yaml` and replace the placeholder:
 
@@ -151,7 +170,7 @@ substitutions:
   backend_ip: "192.168.1.100"  # Use your actual IP from Step 1
 ```
 
-### Step 3: Flash the Device
+### Step 4: Flash the Device
 
 Install ESPHome if you haven't already:
 
@@ -168,7 +187,35 @@ esphome run voice-assistant.yaml
 
 Follow the ESPHome prompts to select the USB serial port.
 
-### Step 4: Verify Connection
+### Step 5: Configure Environment Variables (Optional)
+
+For production deployments or to customize server settings, create a `.env` file:
+
+```bash
+cp .env.example .env
+# Edit .env with your custom settings
+```
+
+Available configuration options:
+
+```env
+# Server Configuration
+CHATTERBOX_HOST=0.0.0.0
+CHATTERBOX_PORT=10700
+
+# Ollama Configuration
+CHATTERBOX_OLLAMA_BASE_URL=http://localhost:11434/v1
+CHATTERBOX_OLLAMA_MODEL=llama3.1:8b
+CHATTERBOX_OLLAMA_TEMPERATURE=0.7
+
+# Conversation Memory
+CHATTERBOX_CONVERSATION_WINDOW_SIZE=3
+
+# Logging
+CHATTERBOX_LOG_LEVEL=INFO
+```
+
+### Step 6: Verify Connection
 
 Once flashed:
 
@@ -252,6 +299,26 @@ tools = [
 - **Accuracy**: llama3.1 is well-suited for general conversational AI and tool use
 
 ## Development
+
+### Setting Up Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality. Set them up with:
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install the git hooks
+pre-commit install
+
+# Run against all files (optional)
+pre-commit run --all-files
+```
+
+The hooks will automatically run on `git commit` and check for:
+- Code formatting (Black, isort)
+- Linting (flake8, mypy)
+- Common issues (trailing whitespace, large files, etc.)
 
 ### Project Structure Best Practices
 

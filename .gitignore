@@ -139,7 +139,10 @@ dmypy.json
 
 # Local configuration files
 .env.local
+.env
 .secrets
+secrets.yaml
+firmware/secrets.yaml
 
 # macOS
 .DS_Store
