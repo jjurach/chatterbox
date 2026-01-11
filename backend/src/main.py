@@ -19,7 +19,7 @@ import logging
 import signal
 from typing import Any
 
-from langchain import globals as langchain_globals
+from langchain_core import globals as langchain_globals
 
 from backend.src.config import get_settings
 from backend.src.server import VoiceAssistantServer
@@ -101,7 +101,8 @@ async def main(debug: bool = False) -> None:
         raise
 
 
-if __name__ == "__main__":
+def cli_main() -> None:
+    """Entry point for the chatterbox3b-server console script."""
     parser = argparse.ArgumentParser(
         description="Wyoming Voice Assistant Server"
     )
@@ -113,3 +114,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     asyncio.run(main(debug=args.debug))
+
+
+if __name__ == "__main__":
+    cli_main()

@@ -59,6 +59,9 @@ test = [
     "pytest-cov>=6.0.0",
 ]
 
+[project.scripts]
+chatterbox3b-server = "backend.src.main:cli_main"
+
 [project.urls]
 Homepage = "https://github.com/yourusername/chatterbox3b"
 Repository = "https://github.com/yourusername/chatterbox3b.git"
