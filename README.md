@@ -60,6 +60,26 @@ pip install -r requirements-dev.txt
 
 ## Usage
 
+### Prerequisites for Running the Server
+
+Before starting the Wyoming server, you need to have Ollama running with the `llama3.1:8b` model.
+
+#### Step 1: Install and Start Ollama
+
+Install Ollama from [ollama.ai](https://ollama.ai) or use your package manager.
+
+Start Ollama with the required model:
+
+```bash
+ollama run llama3.1:8b
+```
+
+This command will:
+- Download the `llama3.1:8b` (Q4_K_M quantized) model if not already present
+- Start the Ollama server on `http://localhost:11434`
+
+Keep this terminal running in the background while the Wyoming server is active.
+
 ### Running the Wyoming Server
 
 Start the Wyoming server on your Ubuntu host:
@@ -68,7 +88,11 @@ Start the Wyoming server on your Ubuntu host:
 python backend/src/main.py
 ```
 
-The server will bind to `0.0.0.0:10700` and wait for connections from the ESP32-S3-BOX-3B device.
+The server will:
+- Connect to Ollama on `http://localhost:11434/v1`
+- Bind to `0.0.0.0:10700` and wait for connections from the ESP32-S3-BOX-3B device
+- Initialize a LangChain agent with conversation memory (last 3 exchanges)
+- Use the `get_time` skill to answer time-related queries
 
 ### Running Tests
 
@@ -172,21 +196,60 @@ The ESPHome configuration in `firmware/voice-assistant.yaml`:
 
 ## LangChain Integration
 
-The backend server includes commented placeholders for integrating LangChain:
+The backend server is fully integrated with LangChain and uses a local Ollama LLM for intelligent responses.
+
+### Architecture
+
+The integration includes:
+
+1. **Language Model**: `ChatOpenAI` from `langchain_openai` connected to Ollama's OpenAI-compatible API
+   - Base URL: `http://localhost:11434/v1`
+   - Model: `llama3.1:8b`
+   - Temperature: `0.7` (for balanced creativity and determinism)
+
+2. **Conversation Memory**: `ConversationBufferWindowMemory` with `k=3`
+   - Stores the last 3 conversational exchanges
+   - Optimized for 8GB VRAM constraint
+   - Prevents memory overflow while maintaining context
+
+3. **Agent Skills**: Extensible tool system
+   - **GetTime**: Provides current date and time to the agent
+   - Easily add more tools by extending the `tools` list in the `__init__` method
+
+4. **Event Processing Pipeline**:
+   - Device sends audio to Wyoming server
+   - Server receives transcript (text) from the device
+   - LangChain agent processes the input, potentially using available skills
+   - Agent response is wrapped in a TTS (Synthesize) event
+   - Response is sent back to the device for audio synthesis
+
+### Adding New Skills
+
+To add a new skill/tool:
 
 ```python
-# Placeholder for LangChain integration
-# from langchain.llms import OpenAI
-# from langchain.chains import LLMChain
-# from langchain.prompts import PromptTemplate
+# 1. Define the tool function
+def my_skill(param: str) -> str:
+    """Tool description for the agent."""
+    return "result"
+
+# 2. Add it to the tools list in VoiceAssistantServer.__init__:
+tools = [
+    Tool(
+        name="MySkill",
+        func=my_skill,
+        description="What the agent can use this for.",
+    ),
+    # ... other tools
+]
 ```
 
-To integrate an LLM:
+### Model Performance Notes
 
-1. Install LangChain dependencies in `requirements.txt`
-2. Uncomment the placeholder imports
-3. Modify the `_create_hello_world_response()` method to use your LLM chain
-4. Process the audio content through your chain before generating the TTS response
+- **Model**: llama3.1:8b with Q4_K_M quantization (4-bit quantization)
+- **VRAM**: Optimized for RTX 2080 (8GB) with ConversationBufferWindowMemory window of 3
+- **Response Time**: Typical response time is 2-5 seconds depending on query complexity
+- **Accuracy**: llama3.1 is well-suited for general conversational AI and tool use
 
 ## Development
 
@@ -210,12 +273,36 @@ For development-only dependencies, add to `requirements-dev.txt`.
 
 ## Troubleshooting
 
+### Ollama Connection Failed
+
+If the Wyoming server fails to connect to Ollama:
+
+1. **Verify Ollama is Running**:
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+   Should return a JSON list of available models.
+
+2. **Check if the Model is Downloaded**:
+   ```bash
+   ollama list
+   ```
+   Should show `llama3.1:8b` in the list.
+
+3. **Start Ollama if Not Running**:
+   ```bash
+   ollama run llama3.1:8b
+   ```
+
+4. **Check Logs**: The Wyoming server logs will show connection errors. Look for messages like `Connection refused` which indicate Ollama is not accessible.
+
 ### Device Won't Connect
 
 - Verify the `backend_ip` in `firmware/voice-assistant.yaml` matches your Ubuntu host
 - Ensure both devices are on the same WiFi network
 - Check firewall settings on Ubuntu (port 10700 should be open)
 - Verify the Wyoming server is running: `python backend/src/main.py`
+- Verify Ollama is running in a separate terminal: `ollama run llama3.1:8b`
 
 ### Server Port Already in Use
 

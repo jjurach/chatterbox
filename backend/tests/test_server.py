@@ -1,13 +1,14 @@
 """
-Tests for the Wyoming Voice Assistant Server.
+Tests for the Wyoming Voice Assistant Server with LangChain Integration.
 
 This module contains pytest tests to verify that the TCP server
-opens correctly and is ready to accept connections.
+opens correctly and tests the LangChain agent with mocked Ollama responses.
 """
 
 import asyncio
 import socket
 from typing import Generator
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -112,3 +113,85 @@ def test_custom_port_configuration() -> None:
     server = VoiceAssistantServer(host=custom_host, port=custom_port)
     assert server.host == custom_host
     assert server.port == custom_port
+
+
+def test_get_time_tool() -> None:
+    """
+    Test that the get_time tool returns a valid time string.
+    """
+    try:
+        from backend.src.main import get_time
+    except ImportError:
+        pytest.skip("Wyoming library not installed")
+
+    time_str = get_time()
+    assert isinstance(time_str, str)
+    assert len(time_str) == 19  # Format: YYYY-MM-DD HH:MM:SS
+    assert time_str[4] == "-" and time_str[7] == "-"  # Date format check
+    assert time_str[10] == " " and time_str[13] == ":"  # Time format check
+
+
+def test_langchain_agent_initialization() -> None:
+    """
+    Test that the LangChain agent is properly initialized with tools.
+    """
+    try:
+        from backend.src.main import VoiceAssistantServer
+    except ImportError:
+        pytest.skip("Wyoming library not installed")
+
+    server = VoiceAssistantServer()
+    assert server.agent is not None
+    assert server.memory is not None
+    assert server.llm is not None
+    # Verify the agent has access to the GetTime tool
+    assert len(server.agent.tools) > 0
+    tool_names = [tool.name for tool in server.agent.tools]
+    assert "GetTime" in tool_names
+
+
+@pytest.mark.asyncio
+async def test_process_user_input_with_mocked_agent() -> None:
+    """
+    Test that user input is correctly processed through the LangChain agent.
+    This test mocks the agent to avoid calling the actual Ollama service.
+    """
+    try:
+        from backend.src.main import VoiceAssistantServer
+    except ImportError:
+        pytest.skip("Wyoming library not installed")
+
+    server = VoiceAssistantServer()
+
+    # Mock the agent's run method to avoid calling Ollama
+    with patch.object(server.agent, "run", return_value="The time is 12:00:00"):
+        response_event = await server._process_user_input("What is the current time?")
+
+        # Verify the response is a Synthesize event with the agent's response
+        assert response_event is not None
+        assert hasattr(response_event, "text")
+        assert "12:00:00" in response_event.text
+
+
+@pytest.mark.asyncio
+async def test_process_user_input_with_error_handling() -> None:
+    """
+    Test that errors during agent processing are properly handled.
+    """
+    try:
+        from backend.src.main import VoiceAssistantServer
+    except ImportError:
+        pytest.skip("Wyoming library not installed")
+
+    server = VoiceAssistantServer()
+
+    # Mock the agent to raise an exception
+    with patch.object(
+        server.agent, "run", side_effect=Exception("Ollama connection failed")
+    ):
+        response_event = await server._process_user_input("What is the time?")
+
+        # Verify error handling creates a proper response
+        assert response_event is not None
+        assert hasattr(response_event, "text")
+        assert "error" in response_event.text.lower()
