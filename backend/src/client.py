@@ -149,7 +149,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         description="Test the Chatterbox3B voice assistant backend",
-        prog="chatterbox-client",
+        prog="chatterbox3b-client",
     )
     parser.add_argument(
         "text",
