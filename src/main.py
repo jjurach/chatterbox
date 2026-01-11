@@ -21,8 +21,8 @@ from typing import Any
 
 from langchain_core import globals as langchain_globals
 
-from src.config import get_settings
-from src.server import VoiceAssistantServer
+from cackle.config import get_settings
+from cackle.adapters.wyoming import VoiceAssistantServer
 
 # Load configuration
 settings = get_settings()

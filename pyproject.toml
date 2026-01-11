@@ -61,7 +61,8 @@ test = [
 
 [project.scripts]
 chatterbox3b-server = "src.main:cli_main"
-chatterbox3b-client = "src.client:main"
+chatterbox3b-wyoming-client = "examples.wyoming_client_test:main"
+chatterbox3b-test-agent = "examples.direct_agent:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/chatterbox3b"
@@ -69,10 +70,12 @@ Repository = "https://github.com/yourusername/chatterbox3b.git"
 Issues = "https://github.com/yourusername/chatterbox3b/issues"
 
 [tool.setuptools]
-packages = ["src", "tests"]
+packages = ["src", "cackle", "cackle.tools", "cackle.tools.builtin", "cackle.adapters", "cackle.adapters.wyoming", "examples", "tests"]
 
 [tool.setuptools.package-dir]
 src = "src"
+cackle = "cackle"
+examples = "examples"
 tests = "tests"
 
 [tool.black]
@@ -134,7 +137,7 @@ addopts = "-v --strict-markers --disable-warnings"
 # 4. LangChain memory migration → Intentional (ConversationBufferWindowMemory from langchain-classic)
 
 [tool.coverage.run]
-source = ["src"]
+source = ["src", "cackle"]
 branch = true
 omit = [
     "*/tests/*",

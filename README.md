@@ -6,15 +6,36 @@ A monorepo for bootstrapping a voice assistant on the ESP32-S3-BOX-3B hardware u
 
 ```
 .
-├── src/                          # Python Wyoming server for audio processing
-│   ├── main.py                  # Main Wyoming server implementation
-│   └── ...                       # Other server modules
-├── tests/                        # Pytest tests for the server
-│   └── test_server.py           # Server tests
-├── firmware/                     # ESPHome configurations for the ESP32-S3-BOX-3B
-│   └── voice-assistant.yaml     # ESPHome device configuration
-├── requirements.txt              # Production dependencies
-├── requirements-dev.txt          # Development dependencies (pytest, black, etc.)
+├── cackle/                       # Core library (protocol-agnostic)
+│   ├── agent.py                 # VoiceAssistantAgent core
+│   ├── config.py                # Configuration management
+│   ├── observability.py         # Debugging & observability
+│   ├── tools/                   # Tool/skill system
+│   │   ├── registry.py          # Tool registry
+│   │   └── builtin/             # Built-in tools
+│   │       └── time_tool.py
+│   └── adapters/                # Protocol adapters
+│       └── wyoming/             # Wyoming protocol implementation
+│           ├── server.py        # Wyoming server
+│           └── client.py        # Test client
+├── src/                          # Application entry point
+│   └── main.py                  # Wyoming server CLI
+├── examples/                     # Example scripts
+│   ├── wyoming_server.py        # Running Wyoming server
+│   ├── direct_agent.py          # Using agent directly
+│   └── wyoming_client_test.py   # Testing Wyoming server
+├── tests/                        # Test suite
+│   ├── core/                    # Agent & tools tests
+│   ├── adapters/                # Adapter tests
+│   └── integration/             # Integration tests
+├── docs/                         # Documentation
+│   ├── architecture.md          # Architecture overview
+│   ├── quickstart.md            # Getting started guide
+│   ├── adapters.md              # Adapter documentation
+│   └── tools.md                 # Tool system documentation
+├── firmware/                     # ESPHome configurations
+│   └── voice-assistant.yaml     # ESP32-S3-BOX-3B device config
+├── pyproject.toml               # Project configuration
 └── README.md                     # This file
 ```
 
@@ -46,16 +67,16 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 ### 3. Install Dependencies
 
-For production:
+Install the package with dependencies:
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 For development (includes testing and linting tools):
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 ```
 
 ## Usage
@@ -100,55 +121,36 @@ The server will:
 - Initialize a LangChain agent with conversation memory (last 3 exchanges)
 - Use the `get_time` skill to answer time-related queries
 
-### Testing with the CLI Test Harness
+### Testing with the Wyoming Client
 
-The `chatterbox3b-client` CLI tool allows you to send text directly to the server as if it were a transcribed voice command, without needing the ESP32 device or audio input.
-
-#### Installation
-
-First, install the package in editable mode:
-
-```bash
-pip install -e .
-```
-
-This will make the `chatterbox3b-client` command available in your environment.
+The `chatterbox3b-wyoming-client` CLI tool allows you to send text directly to the server as if it were a transcribed voice command, without needing the ESP32 device.
 
 #### Basic Usage
 
 Send a simple text query to the server:
 
 ```bash
-chatterbox3b-client "What time is it?"
+chatterbox3b-wyoming-client "What time is it?"
 ```
-
-The tool will connect to the server (default `localhost:10700`), send the transcript, and print the response.
 
 #### Advanced Usage
 
 Connect to a different host and port:
 
 ```bash
-chatterbox3b-client "What time is it?" --host 192.168.1.100 --port 10700
+chatterbox3b-wyoming-client "What time is it?" --host 192.168.1.100 --port 10700
 ```
 
-Enable debug logging to see detailed connection information:
+Enable debug logging:
 
 ```bash
-chatterbox3b-client "What time is it?" --debug
+chatterbox3b-wyoming-client "What time is it?" --debug
 ```
 
-#### Example Output
+Or run the example directly:
 
 ```bash
-$ chatterbox3b-client "What time is it?"
-src.client - INFO - Connecting to localhost:10700...
-src.client - INFO - Connected to server
-src.client - INFO - Sending transcript: What time is it?
-src.client - INFO - Waiting for response...
-The current time is 3:45 PM
-src.client - INFO - Received response: The current time is 3:45 PM
-src.client - INFO - Connection closed
+python examples/wyoming_client_test.py "What time is it?"
 ```
 
 ### Debug Mode
@@ -319,19 +321,33 @@ Once flashed:
 
 ## Architecture
 
-### Backend Server
+### Library-First Design
 
-The Wyoming server in `src/main.py`:
-- Listens for incoming audio streams from the ESP32-S3-BOX-3B
-- Processes audio using the Wyoming protocol
+Cackle follows a library-first architecture separating protocol-agnostic core logic from protocol-specific adapters:
+
+- **Core Library** (`cackle/`): Protocol-agnostic agent, tools, and configuration
+- **Wyoming Adapter** (`cackle/adapters/wyoming/`): Wyoming protocol server implementation
+- **Application** (`src/main.py`): Wyoming server CLI entry point
+
+This design allows the agent to be used directly without any protocol, embedded in other applications, or integrated with different protocols.
+
+See [Architecture Documentation](docs/architecture.md) for detailed information.
+
+### Components
+
+**VoiceAssistantAgent** (`cackle/agent.py`):
 - Uses LangChain with Ollama for intelligent responses
-- Integrated with the Wyoming protocol for device communication
+- Maintains conversation memory (last N exchanges)
+- Provides tool/skill system for extending capabilities
 
-### Firmware
+**Wyoming Adapter** (`cackle/adapters/wyoming/`):
+- Listens for incoming audio streams from ESP32-S3-BOX-3B
+- Processes audio using the Wyoming protocol
+- Returns responses via the Wyoming protocol
 
-The ESPHome configuration in `firmware/voice-assistant.yaml`:
-- Configures the ESP32-S3-BOX-3B hardware peripherals (microphone, speaker, display)
-- Connects to the Wyoming server for audio processing
+**ESPHome Firmware** (`firmware/voice-assistant.yaml`):
+- Configures the ESP32-S3-BOX-3B hardware (microphone, speaker, display)
+- Connects to Wyoming server for audio processing
 - Handles WiFi connectivity
 
 ## LangChain Integration

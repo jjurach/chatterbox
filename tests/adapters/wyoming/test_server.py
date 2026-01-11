@@ -12,9 +12,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.agent import VoiceAssistantAgent
-from src.server import VoiceAssistantServer
-from src.tools import get_available_tools, get_time
+from cackle.agent import VoiceAssistantAgent
+from cackle.adapters.wyoming import VoiceAssistantServer
+from cackle.tools import get_available_tools
+from cackle.tools.builtin import get_time
 
 
 @pytest.fixture
