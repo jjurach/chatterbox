@@ -14,6 +14,17 @@ The Wyoming adapter implements the Wyoming protocol for communication with ESP32
 - `server.py` - Wyoming protocol server implementation
 - `client.py` - Test client for development and debugging
 
+**Audio Format Specification**
+
+The Wyoming protocol uses raw PCM audio streaming with the following standard configuration:
+- **Sampling rate**: 16000 Hz
+- **Channels**: 1 (mono)
+- **Format**: S16_LE (signed 16-bit little endian)
+- **Payload chunks**: 2048-3200 bytes per message
+- **Protocol structure**: Newline-delimited JSON headers with binary PCM payload
+
+This is the audio format you should configure in your ESPHome firmware when flashing ESP32 devices.
+
 **Usage:**
 
 ```python

@@ -24,7 +24,7 @@ Settings are managed through environment variables and the `Settings` class, pro
 **Location:** `cackle/config.py`
 
 ### Adapters
-Adapters provide protocol-specific implementations that integrate the core agent with different systems. Currently, Wyoming protocol adapter for ESP32 devices.
+Adapters provide protocol-specific implementations that integrate the core agent with different systems. Currently, Wyoming protocol adapter for ESP32 devices. The Wyoming adapter handles raw PCM audio (16000 Hz, mono, S16_LE format) from ESP32 devices, transcribes it, processes through the agent, and returns synthesized responses.
 
 **Location:** `cackle/adapters/wyoming/`
 

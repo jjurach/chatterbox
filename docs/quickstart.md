@@ -54,9 +54,13 @@ Or run the example:
 python examples/wyoming_server.py --debug
 ```
 
+The server will bind to `0.0.0.0:10700` and accept Wyoming protocol connections from ESP32 devices. The server validates Ollama connectivity before starting and displays the bound address in logs.
+
 ## Testing the Wyoming Server
 
-Once the server is running, test it with the Wyoming client:
+### Local Testing
+
+Once the server is running, test it with the Wyoming client from the same machine:
 
 ```bash
 python examples/wyoming_client_test.py "What time is it?"
@@ -66,6 +70,28 @@ Or use the installed command:
 ```bash
 chatterbox3b-wyoming-client "Hello"
 ```
+
+### Network Testing
+
+To test from another device on your network (e.g., before flashing an ESP32), get your server's local IP and test from another machine:
+
+```bash
+# From another device on the same network
+python examples/wyoming_client_test.py "Hello" --host 192.168.0.X
+```
+
+Replace `192.168.0.X` with your server's actual IP address on your local network.
+
+### Wyoming Protocol Audio Format
+
+When flashing ESP32 devices with ESPHome firmware, configure them to send audio in the Wyoming protocol's standard format:
+
+- **Sampling rate**: 16000 Hz
+- **Channels**: 1 (mono)
+- **Bit depth**: 16-bit signed (S16_LE)
+- **Payload chunks**: 2048-3200 bytes
+
+The server will automatically handle this format and route the audio through the agent for processing.
 
 ## Configuration
 
