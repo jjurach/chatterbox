@@ -23,6 +23,22 @@ class Settings(BaseSettings):
     # Memory settings
     conversation_window_size: int = 3
 
+    # STT settings
+    stt_model: str = "base"  # tiny, base, small, medium, large
+    stt_device: str = "cpu"  # cpu, cuda
+    stt_language: str | None = None  # None = auto-detect
+
+    # TTS settings
+    tts_voice: str = "en_US-lessac-medium"
+    tts_sample_rate: int = 22050
+
+    # Service mode
+    server_mode: str = "full"  # full, stt_only, tts_only, combined
+
+    # REST API settings
+    rest_port: int = 8080
+    enable_rest: bool = False
+
     # Logging
     log_level: str = "INFO"
 

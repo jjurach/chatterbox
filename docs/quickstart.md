@@ -38,6 +38,8 @@ python examples/direct_agent.py
 
 ## Running the Wyoming Server
 
+### Full Voice Assistant (Default)
+
 To run the agent as a Wyoming protocol server for ESP32 devices:
 
 ```bash
@@ -49,12 +51,41 @@ Or with debug logging:
 chatterbox3b-server --debug
 ```
 
-Or run the example:
+The server will bind to `0.0.0.0:10700` and accept Wyoming protocol connections from ESP32 devices.
+
+### STT-Only Server (Whisper Transcription)
+
+Run a dedicated speech-to-text service:
+
 ```bash
-python examples/wyoming_server.py --debug
+chatterbox3b-server --mode stt_only
 ```
 
-The server will bind to `0.0.0.0:10700` and accept Wyoming protocol connections from ESP32 devices. The server validates Ollama connectivity before starting and displays the bound address in logs.
+### TTS-Only Server (Piper Synthesis)
+
+Run a dedicated text-to-speech service:
+
+```bash
+chatterbox3b-server --mode tts_only
+```
+
+### Combined Mode (STT + TTS without Agent)
+
+Run STT and TTS services without the full voice assistant:
+
+```bash
+chatterbox3b-server --mode combined
+```
+
+### Enable REST API
+
+Run the Wyoming server with a REST API endpoint:
+
+```bash
+chatterbox3b-server --rest --rest-port 8080
+```
+
+This enables both Wyoming protocol and REST API on separate ports.
 
 ## Testing the Wyoming Server
 
@@ -97,24 +128,42 @@ The Wyoming protocol uses the following standard audio format for communication 
 
 ## Configuration
 
-Configure the agent via environment variables:
+Configure the server via environment variables:
 
 ```bash
-# Ollama settings
-export OLLAMA_BASE_URL="http://localhost:11434/v1"
-export OLLAMA_MODEL="llama3.1:8b"
-export OLLAMA_TEMPERATURE=0.7
+# Server mode: full, stt_only, tts_only, combined
+export CHATTERBOX_SERVER_MODE=full
 
-# Server settings
-export HOST="0.0.0.0"
-export PORT=10700
+# Ollama settings (required for 'full' and 'combined' modes)
+export CHATTERBOX_OLLAMA_BASE_URL="http://localhost:11434/v1"
+export CHATTERBOX_OLLAMA_MODEL="llama3.1:8b"
+export CHATTERBOX_OLLAMA_TEMPERATURE=0.7
+
+# STT settings (Whisper)
+export CHATTERBOX_STT_MODEL=base           # tiny, base, small, medium, large
+export CHATTERBOX_STT_DEVICE=cpu           # cpu, cuda
+export CHATTERBOX_STT_LANGUAGE=            # Leave empty for auto-detect
+
+# TTS settings (Piper)
+export CHATTERBOX_TTS_VOICE=en_US-lessac-medium
+export CHATTERBOX_TTS_SAMPLE_RATE=22050
+
+# Wyoming server settings
+export CHATTERBOX_HOST="0.0.0.0"
+export CHATTERBOX_PORT=10700
+
+# REST API settings
+export CHATTERBOX_ENABLE_REST=false
+export CHATTERBOX_REST_PORT=8080
 
 # Agent settings
-export CONVERSATION_WINDOW_SIZE=3
+export CHATTERBOX_CONVERSATION_WINDOW_SIZE=3
 
 # Logging
-export LOG_LEVEL="INFO"
+export CHATTERBOX_LOG_LEVEL="INFO"
 ```
+
+See [STT/TTS Services Guide](stt_tts_services.md) for detailed configuration options.
 
 ## Basic Examples
 
@@ -192,9 +241,40 @@ faster_agent = VoiceAssistantAgent(
 - Reduce conversation window: `CONVERSATION_WINDOW_SIZE=2`
 - Reduce temperature for faster responses: `OLLAMA_TEMPERATURE=0.3`
 
+## STT/TTS Services
+
+Chatterbox3B now includes dedicated Speech-to-Text and Text-to-Speech services:
+
+### Quick Examples
+
+**Transcribe audio (REST API):**
+```bash
+curl -X POST http://localhost:8080/stt \
+  -H "Content-Type: audio/wav" \
+  --data-binary @audio.wav
+```
+
+**Synthesize speech (REST API):**
+```bash
+curl -X POST http://localhost:8080/tts \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello world"}' \
+  --output speech.wav
+```
+
+**Full pipeline (Wyoming protocol):**
+- Device sends audio via AudioStart/AudioChunk/AudioStop
+- Server transcribes audio (STT)
+- Server processes with agent
+- Server synthesizes response (TTS)
+- Device receives speech audio
+
+See [STT/TTS Services Guide](stt_tts_services.md) for complete documentation.
+
 ## Next Steps
 
 - Read [Architecture Documentation](architecture.md) to understand the design
+- Explore [Speech Services Guide](stt_tts_services.md) for STT/TTS details
 - Explore [Adding Tools](tools.md) to extend capabilities
 - Check [Adapter Documentation](adapters.md) for custom protocol support
 - Review [Examples](../examples/) for more use cases

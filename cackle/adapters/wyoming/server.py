@@ -18,6 +18,7 @@ from wyoming.server import AsyncServer
 from wyoming.tts import Synthesize, SynthesizeVoice
 
 from cackle.agent import VoiceAssistantAgent
+from cackle.services import WhisperSTTService, PiperTTSService
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,10 @@ class VoiceAssistantServer(AsyncServer):
         ollama_temperature: float = 0.7,
         conversation_window_size: int = 3,
         debug: bool = False,
+        mode: str = "full",
+        stt_model: str = "base",
+        stt_device: str = "cpu",
+        tts_voice: str = "en_US-lessac-medium",
     ):
         """Initialize the Wyoming voice assistant server.
 
@@ -55,6 +60,10 @@ class VoiceAssistantServer(AsyncServer):
             ollama_temperature: Model temperature for response generation
             conversation_window_size: Number of messages to keep in memory
             debug: Enable debug mode with enhanced Wyoming event logging
+            mode: Server mode - 'full' (VA), 'stt_only', 'tts_only', or 'combined'
+            stt_model: Whisper model size (tiny, base, small, medium, large)
+            stt_device: Device for STT (cpu, cuda)
+            tts_voice: Piper voice name
         """
         super().__init__()
 
@@ -63,17 +72,35 @@ class VoiceAssistantServer(AsyncServer):
         self.port = port or 10700
         self.ollama_base_url = ollama_base_url
         self.debug = debug
+        self.mode = mode
 
-        # Initialize the agent
-        self.agent = VoiceAssistantAgent(
-            ollama_base_url=ollama_base_url,
-            ollama_model=ollama_model,
-            ollama_temperature=ollama_temperature,
-            conversation_window_size=conversation_window_size,
-            debug=debug,
-        )
+        # Audio buffer for STT
+        self.audio_buffer = bytearray()
 
-        logger.info(f"Server initialized on {self.host}:{self.port}")
+        # Initialize services based on mode
+        self.agent: Optional[VoiceAssistantAgent] = None
+        self.stt_service: Optional[WhisperSTTService] = None
+        self.tts_service: Optional[PiperTTSService] = None
+
+        if mode in ("full", "combined"):
+            self.agent = VoiceAssistantAgent(
+                ollama_base_url=ollama_base_url,
+                ollama_model=ollama_model,
+                ollama_temperature=ollama_temperature,
+                conversation_window_size=conversation_window_size,
+                debug=debug,
+            )
+
+        if mode in ("stt_only", "combined"):
+            self.stt_service = WhisperSTTService(
+                model_size=stt_model,
+                device=stt_device,
+            )
+
+        if mode in ("tts_only", "combined", "full"):
+            self.tts_service = PiperTTSService(voice=tts_voice)
+
+        logger.info(f"Server initialized on {self.host}:{self.port} (mode: {mode})")
         if debug:
             logger.info("Server debug mode enabled")
 
@@ -97,6 +124,7 @@ class VoiceAssistantServer(AsyncServer):
             logger.debug("Audio stream started")
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] AudioStart event received")
+            self.audio_buffer.clear()
             return None
 
         if isinstance(event, AudioChunk):
@@ -105,6 +133,8 @@ class VoiceAssistantServer(AsyncServer):
                 logger.debug(
                     f"[{timestamp}] [WYOMING] AudioChunk: {len(event.audio)} bytes"
                 )
+            # Buffer audio for STT processing
+            self.audio_buffer.extend(event.audio)
             return None
 
         if isinstance(event, AudioStop):
@@ -118,7 +148,7 @@ class VoiceAssistantServer(AsyncServer):
             logger.debug("Transcription requested")
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] Transcribe event received")
-            return None
+            return await self._handle_transcribe(event)
 
         if isinstance(event, Transcript):
             logger.info(f"Received transcript: {event.text}")
@@ -133,6 +163,37 @@ class VoiceAssistantServer(AsyncServer):
             logger.debug(f"[{timestamp}] [WYOMING] Unhandled event: {event_type}")
         return None
 
+    async def _handle_transcribe(self, event: Transcribe) -> Optional[Event]:
+        """Handle Transcribe event by running STT on buffered audio.
+
+        Args:
+            event: The Transcribe event
+
+        Returns:
+            A Transcript event with transcribed text
+        """
+        if not self.stt_service:
+            logger.error("STT service not available in this mode")
+            return None
+
+        try:
+            if not self.audio_buffer:
+                logger.warning("No audio data to transcribe")
+                return Transcript(text="", confidence=0.0)
+
+            # Transcribe the buffered audio
+            result = await self.stt_service.transcribe(bytes(self.audio_buffer))
+            self.audio_buffer.clear()
+
+            return Transcript(
+                text=result["text"],
+                confidence=result.get("confidence", 0.0),
+            )
+
+        except Exception as e:
+            logger.error(f"Error transcribing audio: {e}", exc_info=True)
+            return Transcript(text="", confidence=0.0)
+
     async def _process_transcript(self, transcript: Transcript) -> Optional[Event]:
         """Process a transcript event and generate a response.
 
@@ -142,6 +203,10 @@ class VoiceAssistantServer(AsyncServer):
         Returns:
             A Synthesize event with the response to speak
         """
+        if not self.agent:
+            logger.error("Agent not available in this mode")
+            return None
+
         try:
             # Process through the agent
             response_text = await self.agent.process_input(transcript.text)
@@ -224,17 +289,27 @@ class VoiceAssistantServer(AsyncServer):
     async def run(self) -> None:
         """Start the Wyoming server and listen for incoming connections.
 
-        This method validates Ollama connectivity before starting the server
+        This method validates dependencies before starting the server
         to provide early error detection.
 
         Raises:
-            RuntimeError: If Ollama is not accessible
+            RuntimeError: If required services are not accessible
         """
-        # Validate Ollama connection before starting
-        if not await self._validate_ollama_connection():
-            raise RuntimeError(
-                "Ollama is not accessible. Please start it first with: ollama serve"
-            )
+        # Validate dependencies based on mode
+        if self.mode in ("full", "combined"):
+            if not await self._validate_ollama_connection():
+                raise RuntimeError(
+                    "Ollama is not accessible. Please start it first with: ollama serve"
+                )
+
+        # Load STT/TTS models if needed
+        if self.stt_service:
+            logger.info("Preloading STT model (this may take a moment)...")
+            await self.stt_service.load_model()
+
+        if self.tts_service:
+            logger.info("Preloading TTS voice (this may take a moment)...")
+            await self.tts_service.load_voice()
 
         logger.info(f"Starting Wyoming server on {self.host}:{self.port}")
         await self.start(self.host, self.port)

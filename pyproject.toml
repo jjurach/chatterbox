@@ -38,6 +38,10 @@ dependencies = [
     "httpx>=0.24.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
+    "faster-whisper>=0.10.0",
+    "piper-tts>=1.2.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.24.0",
 ]
 
 [project.optional-dependencies]
@@ -70,7 +74,7 @@ Repository = "https://github.com/yourusername/chatterbox3b.git"
 Issues = "https://github.com/yourusername/chatterbox3b/issues"
 
 [tool.setuptools]
-packages = ["src", "cackle", "cackle.tools", "cackle.tools.builtin", "cackle.adapters", "cackle.adapters.wyoming", "examples", "tests"]
+packages = ["src", "cackle", "cackle.tools", "cackle.tools.builtin", "cackle.services", "cackle.adapters", "cackle.adapters.wyoming", "cackle.adapters.rest", "examples", "tests"]
 
 [tool.setuptools.package-dir]
 src = "src"

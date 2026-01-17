@@ -11,22 +11,33 @@ The `VoiceAssistantAgent` is the central component that processes user input and
 
 **Location:** `cackle/agent.py`
 
+### STT/TTS Services
+Dedicated services for speech processing:
+- **WhisperSTTService**: Speech-to-text transcription using OpenAI Whisper
+- **PiperTTSService**: Text-to-speech synthesis using Piper TTS
+
+These services can be used independently or integrated with the Wyoming protocol and REST API.
+
+**Location:** `cackle/services/`
+
 ### Tools
-Tools are functions that the agent can invoke to perform actions like getting the current time. The tool system is centralized through a registry, making it easy to add new tools.
+Tools are functions that the agent can invoke to perform actions like getting the current time, transcribing audio, or synthesizing speech. The tool system is centralized through a registry, making it easy to add new tools.
 
 **Locations:**
 - `cackle/tools/registry.py` - Tool registry
-- `cackle/tools/builtin/` - Built-in tools like time
+- `cackle/tools/builtin/` - Built-in tools (time, STT, TTS)
 
 ### Configuration
-Settings are managed through environment variables and the `Settings` class, providing centralized configuration for the agent and adapters.
+Settings are managed through environment variables and the `Settings` class, providing centralized configuration for the agent, adapters, and services.
 
 **Location:** `cackle/config.py`
 
 ### Adapters
-Adapters provide protocol-specific implementations that integrate the core agent with different systems. Currently, Wyoming protocol adapter for ESP32 devices. The Wyoming adapter handles raw PCM audio (16000 Hz, mono, S16_LE format) from ESP32 devices, transcribes it, processes through the agent, and returns synthesized responses.
+Adapters provide protocol-specific implementations that integrate the core agent with different systems.
 
-**Location:** `cackle/adapters/wyoming/`
+**Available adapters:**
+- **Wyoming** (`cackle/adapters/wyoming/`) - ESP32 and voice assistant protocol
+- **REST** (`cackle/adapters/rest/`) - HTTP JSON API with FastAPI
 
 ### Observability
 LangChain callback handlers provide debugging and observability into agent execution.
@@ -41,18 +52,27 @@ cackle/                           # Core library code (protocol-agnostic)
 ├── agent.py                      # Core agent implementation
 ├── config.py                     # Configuration management
 ├── observability.py              # Debugging and observability
+├── services/                     # STT and TTS services
+│   ├── __init__.py
+│   ├── stt.py                    # Whisper STT service
+│   └── tts.py                    # Piper TTS service
 ├── tools/                        # Tool system
 │   ├── __init__.py
 │   ├── registry.py               # Tool registry
 │   └── builtin/                  # Built-in tools
 │       ├── __init__.py
-│       └── time_tool.py
+│       ├── time_tool.py
+│       ├── stt_tool.py           # STT tool for agents
+│       └── tts_tool.py           # TTS tool for agents
 └── adapters/                     # Protocol adapters
     ├── __init__.py
-    └── wyoming/                  # Wyoming protocol adapter
+    ├── wyoming/                  # Wyoming protocol adapter
+    │   ├── __init__.py
+    │   ├── server.py             # Wyoming server implementation
+    │   └── client.py             # Wyoming test client
+    └── rest/                     # REST API adapter
         ├── __init__.py
-        ├── server.py             # Wyoming server implementation
-        └── client.py             # Wyoming test client
+        └── api.py                # FastAPI application
 
 src/                              # Application entry points
 ├── __init__.py
@@ -88,18 +108,53 @@ docs/                             # Documentation
 
 ## Component Interaction
 
+### Full Voice Assistant Flow (Mode: `full`)
 ```
-User Input (text/audio)
+Audio Input
     ↓
-Wyoming Adapter (cackle/adapters/wyoming/)
+Wyoming/REST → STT Service (Whisper)
     ↓
-VoiceAssistantAgent (cackle/agent.py)
+Transcript → VoiceAssistantAgent
     ↓
 LangChain + Ollama LLM
     ↓
-Tools (cackle/tools/)
+Tools (get_time, transcribe_audio, synthesize_speech)
     ↓
-Response → Wyoming Adapter → User Output
+Response → TTS Service (Piper)
+    ↓
+Audio Output → Wyoming/REST
+```
+
+### STT-Only Flow (Mode: `stt_only`)
+```
+Audio Input
+    ↓
+Wyoming/REST → STT Service (Whisper)
+    ↓
+Transcript Output → Client
+```
+
+### TTS-Only Flow (Mode: `tts_only`)
+```
+Text Input
+    ↓
+Wyoming/REST → TTS Service (Piper)
+    ↓
+Audio Output → Client
+```
+
+### Adapter Integration
+```
+Wyoming Protocol Client (ESP32, HA)
+        ↓
+    Wyoming Server (cackle/adapters/wyoming/)
+        ↓ ↓ ↓
+    STT  AGENT  TTS
+    Services
+        ↓
+    REST API Client
+        ↓
+    FastAPI (cackle/adapters/rest/)
 ```
 
 ## Design Principles
@@ -144,10 +199,22 @@ Environment variables in `cackle/config.py` control agent behavior:
 - `OLLAMA_TEMPERATURE` - Response creativity (0.0-1.0)
 - `CONVERSATION_WINDOW_SIZE` - Message history length
 
+## Service Modes
+
+The server can operate in different modes optimized for different use cases:
+
+| Mode | Components | Use Case |
+|------|-----------|----------|
+| `full` | Agent + STT + TTS | Complete voice assistant with agent intelligence |
+| `stt_only` | STT only | Dedicated transcription service |
+| `tts_only` | TTS only | Dedicated speech synthesis service |
+| `combined` | STT + TTS (no Agent) | Audio processing without LLM inference |
+
 ## Future Enhancements
 
-- HTTP/REST adapter for web applications
-- WebSocket adapter for real-time clients
-- Plugin-based tool discovery
+- WebSocket adapter for real-time streaming
+- Plugin-based tool discovery system
 - Multiple LLM provider abstraction
 - Persistent conversation storage
+- Vision and other multimodal services
+- Performance optimization (batching, caching)
