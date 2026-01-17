@@ -82,16 +82,18 @@ python examples/wyoming_client_test.py "Hello" --host 192.168.0.X
 
 Replace `192.168.0.X` with your server's actual IP address on your local network.
 
-### Wyoming Protocol Audio Format
+### Wyoming Protocol Integration
 
-When flashing ESP32 devices with ESPHome firmware, configure them to send audio in the Wyoming protocol's standard format:
+ESPHome firmware communicates with Home Assistant using its native protocols. Home Assistant then connects to Chatterbox3b services (STT with Whisper, TTS with Piper) using the Wyoming protocol.
+
+When configuring ESPHome devices, ensure they are set up to work with Home Assistant's voice assistant integration. Home Assistant handles the audio format conversion and protocol translation between ESPHome and Wyoming.
+
+The Wyoming protocol uses the following standard audio format for communication between Home Assistant and Chatterbox3b services:
 
 - **Sampling rate**: 16000 Hz
 - **Channels**: 1 (mono)
 - **Bit depth**: 16-bit signed (S16_LE)
 - **Payload chunks**: 2048-3200 bytes
-
-The server will automatically handle this format and route the audio through the agent for processing.
 
 ## Configuration
 
