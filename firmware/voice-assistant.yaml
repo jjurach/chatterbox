@@ -1,61 +1,528 @@
-# ESP32-S3-BOX-3B Voice Assistant Configuration
-# Integrates with Wyoming voice assistant protocol
-#
-# Setup Instructions:
-# 1. Get your Ubuntu host IP: hostname -I
-# 2. Replace backend_ip placeholder below
-# 3. Create secrets.yaml with wifi_ssid and wifi_password
-
-packages:
-  # Use official ESP32-S3-BOX-3 package for hardware support
-  esp32_s3_box_3: github://esphome/esphome/esp32_s3_box_3.yaml
+---
+external_components:
+  - source:
+      type: git
+      url: https://github.com/muxa/esphome-state-machine.git
+      ref: main
 
 substitutions:
-  device_name: voice-assistant
-  friendly_name: ESP32-S3-BOX-3B Voice Assistant
-  backend_ip: "192.168.1.100"  # PLACEHOLDER: Replace with actual IP from hostname -I
+  name: esp32-s3-box-3
+  friendly_name: ESP32 S3 Box 3
+  loading_illustration_file: https://github.com/esphome/wake-word-voice-assistants/raw/main/casita/loading_320_240.png
+  idle_illustration_file: https://github.com/esphome/wake-word-voice-assistants/raw/main/casita/idle_320_240.png
+  listening_illustration_file: https://github.com/esphome/wake-word-voice-assistants/raw/main/casita/listening_320_240.png
+  thinking_illustration_file: https://github.com/esphome/wake-word-voice-assistants/raw/main/casita/thinking_320_240.png
+  replying_illustration_file: https://github.com/esphome/wake-word-voice-assistants/raw/main/casita/replying_320_240.png
+  error_illustration_file: https://github.com/esphome/wake-word-voice-assistants/raw/main/casita/error_320_240.png
+  timer_finished_illustration_file: https://github.com/esphome/wake-word-voice-assistants/raw/main/casita/timer_finished_320_240.png
+
+  loading_illustration_background_color: "000000"
+  idle_illustration_background_color: "000000"
+  listening_illustration_background_color: "FFFFFF"
+  thinking_illustration_background_color: "FFFFFF"
+  replying_illustration_background_color: "FFFFFF"
+  error_illustration_background_color: "000000"
+
+  allowed_characters: " !#%'()+,-./0123456789:;<>?@ABCDEFGHIJKLMNOPQRSTUVWYZ[]_abcdefghijklmnopqrstuvwxyz{|}°²³µ¿ÁÂÄÅÉÖÚßàáâãäåæçèéêëìíîðñòóôõöøùúûüýþāăąćčďĐđēėęěğĮįıļľŁłńňőřśšťũūůűųźŻżŽžơưșțΆΈΌΐΑΒΓΔΕΖΗΘΚΜΝΠΡΣΤΥΦάέήίαβγδεζηθικλμνξοπρςστυφχψωϊόύώАБВГДЕЖЗИКЛМНОПРСТУХЦЧШЪЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяёђєіїјљњћאבגדהוזחטיכלםמןנסעפץצקרשת،ءآأإئابةتجحخدذرزسشصضطظعغفقكلمنهوىيٹپچڈکگںھہیےংকচতধনফবযরলশষস়ািु্చయలిెొ్ംఅആഇഈഉഎഓകഗങചജഞടഡണതദധനപഫബഭമയരറലളവശസഹാിീുൂെേൈ്ൺൻർൽൾაბგდევზთილმნოპრსტუფქყშჩცძჭხạảấầẩậắặẹẽếềểệỉịọỏốồổỗộớờởợụủứừửữựỳ—、一上不个中为主乾了些亮人任低佔何作供依侧係個側偵充光入全关冇冷几切到制前動區卧厅厨及口另右吊后吗启吸呀咗哪唔問啟嗎嘅嘛器圍在场執場外多大始安定客室家密寵对將小少左已帘常幫幾库度庫廊廚廳开式後恆感態成我戲戶户房所扇手打执把拔换掉控插摄整斯新明是景暗更最會有未本模機檯櫃欄次正氏水沒没洗活派温測源溫漏潮激濕灯為無煙照熱燈燥物狀玄现現瓦用發的盞目着睡私空窗立笛管節簾籬紅線红罐置聚聲脚腦腳臥色节著行衣解設調請謝警设调走路車车运連遊運過道邊部都量鎖锁門閂閉開關门闭除隱離電震霧面音頂題顏颜風风食餅餵가간감갔강개거게겨결경고공과관그금급기길깥꺼껐꼽나난내네놀누는능니다닫담대더데도동됐되된됨둡드든등디때떤뜨라래러렇렌려로료른를리림링마많명몇모무문물뭐바밝방배변보부불블빨뽑사산상색서설성세센션소쇼수스습시신실싱아안않알았애야어얼업없었에여연열옆오온완외왼요운움워원위으은을음의이인일임입있작잠장재전절정제져조족종주줄중줘지직진짐쪽차창천최추출충치침커컴켜켰쿠크키탁탄태탬터텔통트튼티파팬퍼폰표퓨플핑한함해했행혀현화활후휴힘，？"
+
+  font_glyphsets: "GF_Latin_Core"
+  font_family: Figtree
 
 esphome:
-  name: ${device_name}
+  name: ${name}
   friendly_name: ${friendly_name}
-  min_version: 2024.6.1
+  min_version: 2025.5.0
+  name_add_mac_suffix: true
+  on_boot:
+    priority: 600
+    then:
+      - state_machine.transition:
+          id: voice_assistant_fsm
+          input: boot_successful
 
-# WiFi configuration
+esp32:
+  board: esp32s3box
+  flash_size: 16MB
+  cpu_frequency: 240MHz
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+api:
+
+ota:
+  - platform: esphome
+    id: ota_esphome
+
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+  level: DEBUG
+  # Component-specific debug levels for observability
+  logs:
+    micro_wake_word: DEBUG
+    voice_assistant: DEBUG
+    state_machine: DEBUG
+    i2s_audio: DEBUG
+    microphone: DEBUG
+    audio_adc: DEBUG
+    media_player: DEBUG
+
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
-  reboot_timeout: 10min
-  fast_connect: true
+  ap:
 
-# Enable logging
-logger:
-  level: INFO
+captive_portal:
 
-# Enable OTA (Over-The-Air) updates
-ota:
-  - platform: esphome
+button:
+  - platform: factory_reset
+    id: factory_reset_btn
+    internal: true
 
-# ESPHome API for integration and services
-api:
-  services:
-    - service: voice_assistant_set_listening
-      variables:
-        enabled: bool
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+    id: left_top_button
+    internal: true
 
-# Voice Assistant Component
-# Processes audio from microphone and sends to Wyoming server
+output:
+  - platform: ledc
+    pin: GPIO47
+    id: backlight_output
+
+light:
+  - platform: monochromatic
+    id: led
+    name: Screen
+    icon: "mdi:television"
+    entity_category: config
+    output: backlight_output
+    restore_mode: RESTORE_DEFAULT_ON
+    default_transition_length: 250ms
+
+i2c:
+  scl: GPIO18
+  sda: GPIO8
+
+# touch_screen disabled - component not available in ESPHome 2025.12.6
+# touch_screen:
+#   - platform: gt911
+#     id: my_touch_screen
+#     interrupt_pin: GPIO21
+#     on_touch:
+#       then:
+#         - lambda: |
+#             // Check if touch is in the "Wake House" button area
+#             // Button is centered at bottom: X: 80-240, Y: 200-230
+#             if (touch.x > 80 && touch.x < 240 && touch.y > 200 && touch.y < 230) {
+#               if (id(house_sleeping)) {
+#                 id(wake_house).execute();
+#               }
+#             }
+
+i2s_audio:
+  - id: i2s_audio_bus
+    i2s_lrclk_pin: GPIO45
+    i2s_bclk_pin: GPIO17
+    i2s_mclk_pin: GPIO2
+
+audio_adc:
+  - platform: es7210
+    id: es7210_adc
+    bits_per_sample: 16bit
+    sample_rate: 16000
+
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    bits_per_sample: 16bit
+    sample_rate: 48000
+
+microphone:
+  - platform: i2s_audio
+    id: box_mic
+    sample_rate: 16000
+    i2s_din_pin: GPIO16
+    bits_per_sample: 16bit
+    adc_type: external
+
+speaker:
+  - platform: i2s_audio
+    id: box_speaker
+    i2s_dout_pin: GPIO15
+    dac_type: external
+    sample_rate: 48000
+    bits_per_sample: 16bit
+    channel: left
+    audio_dac: es8311_dac
+    buffer_duration: 100ms
+
+media_player:
+  - platform: speaker
+    name: None
+    id: speaker_media_player
+    volume_min: 0.5
+    volume_max: 0.8
+    announcement_pipeline:
+      speaker: box_speaker
+      format: FLAC
+      sample_rate: 48000
+      num_channels: 1
+    files:
+      - id: timer_finished_sound
+        file: https://github.com/esphome/home-assistant-voice-pe/raw/dev/sounds/timer_finished.flac
+
+micro_wake_word:
+  id: mww
+  models:
+    - okay_nabu
+    - hey_mycroft
+    - hey_jarvis
+  on_wake_word_detected:
+    - logger.log:
+        format: "🎤 WAKE WORD DETECTED!"
+        level: INFO
+    - state_machine.transition:
+        id: voice_assistant_fsm
+        input: wake_word_detected
+
 voice_assistant:
-  microphone: mic
-  speaker: speaker
-  use_wake_word: false
+  id: va
+  microphone: box_mic
+  media_player: speaker_media_player
+  micro_wake_word: mww
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  volume_multiplier: 2.0
+  on_stt_end:
+    - logger.log:
+        format: "📝 STT END event fired"
+        level: INFO
+    - state_machine.transition:
+        id: voice_assistant_fsm
+        input: stt_end
+  on_tts_start:
+    - logger.log:
+        format: "🔊 TTS START event fired"
+        level: INFO
+    - state_machine.transition:
+        id: voice_assistant_fsm
+        input: tts_start
+  on_tts_end:
+    - logger.log:
+        format: "🔉 TTS END event fired"
+        level: INFO
+    - state_machine.transition:
+        id: voice_assistant_fsm
+        input: tts_end
+  on_error:
+    - logger.log:
+        format: "❌ VOICE ASSISTANT ERROR event fired"
+        level: WARN
+    - state_machine.transition:
+        id: voice_assistant_fsm
+        input: va_error
+  on_client_connected:
+    - logger.log:
+        format: "✅ Home Assistant CLIENT CONNECTED - voice assistant ready"
+        level: INFO
+    - state_machine.transition:
+        id: voice_assistant_fsm
+        input: boot_successful
+  on_client_disconnected:
+    - logger.log:
+        format: "⚠️  Home Assistant CLIENT DISCONNECTED"
+        level: WARN
+    - state_machine.transition:
+        id: voice_assistant_fsm
+        input: va_error
 
-# Wyoming Protocol Connection
-# Connects to the Python Wyoming server for intelligent voice processing
-external_components:
-  - source: github://esphome/esphome-external-components
-    components:
-      - wyoming
+switch:
+  - platform: gpio
+    name: Speaker Enable
+    pin: GPIO46
+    restore_mode: RESTORE_DEFAULT_ON
+    entity_category: config
+    disabled_by_default: true
+  - platform: template
+    name: Mute
+    id: mute
+    icon: "mdi:microphone-off"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    entity_category: config
+  - platform: template
+    id: timer_ringing
+    optimistic: true
+    internal: true
+    restore_mode: ALWAYS_OFF
 
-wyoming:
-  host: ${backend_ip}
-  port: 10700
+select:
+  - platform: template
+    entity_category: config
+    name: Wake word engine location
+    id: wake_word_engine_location
+    icon: "mdi:account-voice"
+    optimistic: true
+    restore_value: true
+    options:
+      - In Home Assistant
+      - On device
+    initial_option: On device
+
+globals:
+  - id: global_first_active_timer
+    type: voice_assistant::Timer
+    restore_value: false
+  - id: global_is_timer_active
+    type: bool
+    restore_value: false
+  - id: global_first_timer
+    type: voice_assistant::Timer
+    restore_value: false
+  - id: global_is_timer
+    type: bool
+    restore_value: false
+
+state_machine:
+  id: voice_assistant_fsm
+  initial_state: uninitialized
+  states:
+    - name: uninitialized
+      on_enter:
+        - logger.log:
+            format: "🔄 STATE MACHINE → UNINITIALIZED"
+            level: INFO
+        - display.page.show: uninitialized_page
+    - name: idle
+      on_enter:
+        - logger.log:
+            format: "😴 STATE MACHINE → IDLE (ready for wake word)"
+            level: INFO
+        - display.page.show: idle_page
+    - name: listening
+      on_enter:
+        - logger.log:
+            format: "👂 STATE MACHINE → LISTENING (recording speech)"
+            level: INFO
+        - display.page.show: listening_page
+    - name: thinking
+      on_enter:
+        - logger.log:
+            format: "🧠 STATE MACHINE → THINKING (processing)"
+            level: INFO
+        - display.page.show: thinking_page
+    - name: replying
+      on_enter:
+        - logger.log:
+            format: "🗣️  STATE MACHINE → REPLYING (speaking response)"
+            level: INFO
+        - display.page.show: replying_page
+    - name: error
+      on_enter:
+        - logger.log:
+            format: "💥 STATE MACHINE → ERROR (something failed)"
+            level: ERROR
+        - display.page.show: error_page
+  inputs:
+    - name: boot_successful
+      transitions:
+        - from: uninitialized
+          to: idle
+    - name: wake_word_detected
+      transitions:
+        - from: idle
+          to: listening
+    - name: stt_end
+      transitions:
+        - from: listening
+          to: thinking
+    - name: tts_start
+      transitions:
+        - from: thinking
+          to: replying
+    - name: tts_end
+      transitions:
+        - from: replying
+          to: idle
+    - name: silence_detected
+      transitions:
+        - from: listening
+          to: idle
+    - name: va_error
+      transitions:
+        - from: thinking
+          to: error
+        - from: replying
+          to: error
+        - from: listening
+          to: error
+        - from: idle
+          to: error
+    - name: error_cleared
+      transitions:
+        - from: error
+          to: idle
+
+image:
+  - file: ${error_illustration_file}
+    id: casita_error
+    resize: 320x240
+    type: RGB
+    transparency: alpha_channel
+  - file: ${idle_illustration_file}
+    id: casita_idle
+    resize: 320x240
+    type: RGB
+    transparency: alpha_channel
+  - file: ${listening_illustration_file}
+    id: casita_listening
+    resize: 320x240
+    type: RGB
+    transparency: alpha_channel
+  - file: ${thinking_illustration_file}
+    id: casita_thinking
+    resize: 320x240
+    type: RGB
+    transparency: alpha_channel
+  - file: ${replying_illustration_file}
+    id: casita_replying
+    resize: 320x240
+    type: RGB
+    transparency: alpha_channel
+  - file: ${timer_finished_illustration_file}
+    id: casita_timer_finished
+    resize: 320x240
+    type: RGB
+    transparency: alpha_channel
+  - file: ${loading_illustration_file}
+    id: casita_initializing
+    resize: 320x240
+    type: RGB
+    transparency: alpha_channel
+  - file: https://github.com/esphome/wake-word-voice-assistants/raw/main/error_box_illustrations/error-no-wifi.png
+    id: error_no_wifi
+    resize: 320x240
+    type: RGB
+    transparency: alpha_channel
+  - file: https://github.com/esphome/wake-word-voice-assistants/raw/main/error_box_illustrations/error-no-ha.png
+    id: error_no_ha
+    resize: 320x240
+    type: RGB
+    transparency: alpha_channel
+
+font:
+  - file:
+      type: gfonts
+      family: ${font_family}
+      weight: 300
+      italic: true
+    id: font_request
+    size: 15
+    glyphsets:
+      - ${font_glyphsets}
+  - file:
+      type: gfonts
+      family: ${font_family}
+      weight: 300
+    id: font_response
+    size: 15
+    glyphsets:
+      - ${font_glyphsets}
+  - file:
+      type: gfonts
+      family: ${font_family}
+      weight: 300
+    id: font_timer
+    size: 30
+    glyphsets:
+      - ${font_glyphsets}
+
+text_sensor:
+  - id: text_request
+    platform: template
+    on_value:
+      lambda: |-
+        if(id(text_request).state.length()>32) {
+          std::string name = id(text_request).state.c_str();
+          std::string truncated = esphome::str_truncate(name.c_str(),31);
+          id(text_request).state = (truncated+"...").c_str();
+        }
+
+  - id: text_response
+    platform: template
+    on_value:
+      lambda: |-
+        if(id(text_response).state.length()>32) {
+          std::string name = id(text_response).state.c_str();
+          std::string truncated = esphome::str_truncate(name.c_str(),31);
+          id(text_response).state = (truncated+"...").c_str();
+        }
+
+color:
+  - id: idle_color
+    hex: ${idle_illustration_background_color}
+  - id: listening_color
+    hex: ${listening_illustration_background_color}
+  - id: thinking_color
+    hex: ${thinking_illustration_background_color}
+  - id: replying_color
+    hex: ${replying_illustration_background_color}
+  - id: loading_color
+    hex: ${loading_illustration_background_color}
+  - id: error_color
+    hex: ${error_illustration_background_color}
+  - id: active_timer_color
+    hex: "26ed3a"
+  - id: paused_timer_color
+    hex: "3b89e3"
+
+spi:
+  - id: spi_bus
+    clk_pin: 7
+    mosi_pin: 6
+
+display:
+  - platform: ili9xxx
+    id: s3_box_lcd
+    model: S3BOX
+    invert_colors: false
+    data_rate: 40MHz
+    cs_pin: 5
+    dc_pin: 4
+    reset_pin:
+      number: 48
+      inverted: true
+    update_interval: 1s
+    on_page_change:
+      then:
+        - component.update: s3_box_lcd
+    pages:
+      - id: uninitialized_page
+        lambda: |-
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_initializing), ImageAlign::CENTER);
+      - id: idle_page
+        lambda: |-
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_idle), ImageAlign::CENTER);
+      - id: listening_page
+        lambda: |-
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_listening), ImageAlign::CENTER);
+      - id: thinking_page
+        lambda: |-
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_thinking), ImageAlign::CENTER);
+      - id: replying_page
+        lambda: |-
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_replying), ImageAlign::CENTER);
+      - id: error_page
+        lambda: |-
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_error), ImageAlign::CENTER);
