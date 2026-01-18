@@ -2,10 +2,11 @@
 #
 # Wyoming Voice Assistant Demo Script
 #
-# This script demonstrates the complete Wyoming voice assistant workflow:
-# 1. Restart the server
-# 2. Verify it's running
-# 3. Test Wyoming endpoints with the specified WAV file
+# This script tests the Wyoming voice assistant by running the pipeline
+# against an already-running server.
+#
+# PREREQUISITES:
+#   - Server must already be running (start it separately with: bash scripts/run-server.sh start)
 #
 # Usage:
 #   ./scripts/chat-demo.sh                    # Use defaults (localhost:10700, test_audio.wav)
@@ -49,10 +50,6 @@ error() {
     echo -e "${RED}✗${NC} $*" >&2
 }
 
-warning() {
-    echo -e "${YELLOW}⚠${NC} $*" >&2
-}
-
 info() {
     echo -e "${CYAN}ℹ${NC} $*" >&2
 }
@@ -83,15 +80,19 @@ while [[ $# -gt 0 ]]; do
             echo "USAGE:"
             echo "    $0 [OPTIONS]"
             echo ""
+            echo "PREREQUISITES:"
+            echo "    Server must be running. Start it with:"
+            echo "      bash scripts/run-server.sh start"
+            echo ""
             echo "OPTIONS:"
             echo "    -u, --uri URI          Wyoming server URI (default: $DEFAULT_URI)"
-            echo "    -f, --file FILE         Test WAV file path (default: $DEFAULT_FILE)"
-            echo "    -h, --help              Show this help message"
+            echo "    -f, --file FILE        Test WAV file path (default: $DEFAULT_FILE)"
+            echo "    -h, --help             Show this help message"
             echo ""
             echo "EXAMPLES:"
             echo "    $0"
             echo "    $0 --file my_test.wav"
-            echo "    $0 --uri tcp://192.168.1.100:10700 --file custom_test.wav"
+            echo "    $0 --uri tcp://192.168.1.100:10700"
             echo ""
             exit 0
             ;;
@@ -114,78 +115,43 @@ echo "Server URI: $SERVER_URI"
 echo "Test File:  $TEST_FILE"
 echo ""
 
-# Server log file location
-LOG_FILE="$PROJECT_ROOT/tmp/chatterbox3b-server.log"
+# Check if server is running
+header "Checking Server"
+log "Verifying server is accessible at $SERVER_URI..."
 
-# Step 1: Restart the server
-header "Step 1: Restarting Server"
-log "Restarting chatterbox3b-server..."
-
-if "$SCRIPT_DIR/run-server.sh" restart; then
-    success "Server restart initiated"
+# Extract host and port from URI
+if [[ $SERVER_URI =~ tcp://([^:]+):([0-9]+) ]]; then
+    HOST="${BASH_REMATCH[1]}"
+    PORT="${BASH_REMATCH[2]}"
 else
-    error "Failed to restart server"
+    error "Invalid server URI format: $SERVER_URI"
+    echo "Expected format: tcp://host:port"
     exit 1
 fi
 
-# Wait for server to fully start (Wyoming library takes time to bind socket)
-log "Waiting for server to initialize..."
-sleep 30
-
-# Step 2: Verify server is running and listening
-header "Step 2: Verifying Server Status"
-log "Checking server status..."
-
-if "$SCRIPT_DIR/run-server.sh" status >/dev/null 2>&1; then
-    success "Server is running"
-    # Show the status output
-    "$SCRIPT_DIR/run-server.sh" status 2>/dev/null || true
-else
-    error "Server is not running"
-    echo "Check the server logs for errors:"
-    echo "  $SCRIPT_DIR/run-server.sh status"
+# Check if server is listening
+if ! nc -z -w 2 "$HOST" "$PORT" 2>/dev/null; then
+    error "Server is not running at $HOST:$PORT"
+    echo ""
+    echo "To start the server, run:"
+    echo "  bash scripts/run-server.sh start"
     exit 1
 fi
 
-# Wait for server to be ready to accept connections
-log "Waiting for server to be ready..."
-MAX_ATTEMPTS=30
-ATTEMPT=0
-while ! nc -z localhost 10700 2>/dev/null; do
-    ATTEMPT=$((ATTEMPT + 1))
-    if [[ $ATTEMPT -ge $MAX_ATTEMPTS ]]; then
-        error "Server is running but not accepting connections after $MAX_ATTEMPTS seconds"
-        echo "Server may still be initializing. Check logs:"
-        echo "  tail -n 50 $LOG_FILE"
-        exit 1
-    fi
-    sleep 1
-done
-success "Server is ready to accept connections"
+success "Server is running and accessible"
+echo ""
 
-# Step 3: Test Wyoming endpoints
-header "Step 3: Testing Wyoming Endpoints"
-log "Testing Wyoming pipeline with audio file..."
-
-# Test 1: Full STT + TTS pipeline
-info "Running full STT → Intent → TTS pipeline test..."
+# Run test
+header "Testing Wyoming Pipeline"
+log "Testing STT → LLM → TTS pipeline with audio file..."
 echo ""
 
 if python -m wyoming_tester.cli --uri "$SERVER_URI" --file "$TEST_FILE" --verbose; then
-    success "Full pipeline test completed successfully"
+    success "Pipeline test completed successfully"
 else
-    error "Full pipeline test failed"
+    error "Pipeline test failed"
     exit 1
 fi
 
 echo ""
-log "Demo completed successfully!"
-echo ""
-echo "Next steps you can try:"
-echo "  • Run additional tests with different WAV files"
-echo "  • Test with conversation context: wyoming-tester -u $SERVER_URI -f $TEST_FILE -c abc123"
-echo "  • Monitor server logs: $SCRIPT_DIR/run-server.sh status"
-echo "  • Check server logs: tail -f tmp/chatterbox3b-server.log"
-echo ""
-
 success "Demo script finished successfully"
