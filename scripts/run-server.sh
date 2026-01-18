@@ -21,15 +21,17 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PID_FILE="$PROJECT_ROOT/tmp/chatterbox3b-server.pid"
 LOG_FILE="$PROJECT_ROOT/tmp/chatterbox3b-server.log"
 
-# Check if virtual environment is activated
-if [[ -z "$VIRTUAL_ENV" ]]; then
-    error "Virtual environment not activated. Please run:"
-    echo "  source venv/bin/activate"
-    echo "  $0 $@"
+# Configuration for venv
+VENV_BIN="$PROJECT_ROOT/venv/bin"
+PYTHON_BIN="$VENV_BIN/python"
+
+# Check if venv exists
+if [[ ! -f "$PYTHON_BIN" ]]; then
+    error "Virtual environment not found at $PROJECT_ROOT/venv"
     exit 1
 fi
 
-SERVER_CMD="PYTHONPATH=$PROJECT_ROOT python -m src.main"
+SERVER_CMD="PYTHONPATH=$PROJECT_ROOT $PYTHON_BIN -m src.main"
 
 # Colors for output
 RED='\033[0;31m'
@@ -130,7 +132,7 @@ cmd_start() {
     log "All output will be logged to: $LOG_FILE"
 
     # Start server with output redirection
-    nohup bash -c "source venv/bin/activate && $SERVER_CMD" >> "$LOG_FILE" 2>&1 &
+    nohup bash -c "$SERVER_CMD" >> "$LOG_FILE" 2>&1 &
     local pid=$!
 
     # Wait a moment for server to start
@@ -172,9 +174,9 @@ cmd_stop() {
     # Try graceful shutdown first
     kill -TERM "$pid" 2>/dev/null || true
 
-    # Wait up to 10 seconds for graceful shutdown
+    # Wait up to 30 seconds for graceful shutdown
     local count=0
-    while kill -0 "$pid" 2>/dev/null && [[ $count -lt 10 ]]; do
+    while kill -0 "$pid" 2>/dev/null && [[ $count -lt 30 ]]; do
         sleep 1
         ((count++))
     done

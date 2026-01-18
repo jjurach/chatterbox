@@ -21,6 +21,9 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DEFAULT_URI="tcp://localhost:10700"
 DEFAULT_FILE="$PROJECT_ROOT/tests/data/audio/test_audio.wav"
 
+VENV_DIR=$SCRIPT_DIR/../venv
+test -d "$VENV_DIR/bin" && . "$VENV_DIR/bin/activate"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -111,6 +114,9 @@ echo "Server URI: $SERVER_URI"
 echo "Test File:  $TEST_FILE"
 echo ""
 
+# Server log file location
+LOG_FILE="$PROJECT_ROOT/tmp/chatterbox3b-server.log"
+
 # Step 1: Restart the server
 header "Step 1: Restarting Server"
 log "Restarting chatterbox3b-server..."
@@ -122,11 +128,11 @@ else
     exit 1
 fi
 
-# Wait a moment for server to fully start
+# Wait for server to fully start (Wyoming library takes time to bind socket)
 log "Waiting for server to initialize..."
-sleep 3
+sleep 30
 
-# Step 2: Verify server is running
+# Step 2: Verify server is running and listening
 header "Step 2: Verifying Server Status"
 log "Checking server status..."
 
@@ -140,6 +146,22 @@ else
     echo "  $SCRIPT_DIR/run-server.sh status"
     exit 1
 fi
+
+# Wait for server to be ready to accept connections
+log "Waiting for server to be ready..."
+MAX_ATTEMPTS=30
+ATTEMPT=0
+while ! nc -z localhost 10700 2>/dev/null; do
+    ATTEMPT=$((ATTEMPT + 1))
+    if [[ $ATTEMPT -ge $MAX_ATTEMPTS ]]; then
+        error "Server is running but not accepting connections after $MAX_ATTEMPTS seconds"
+        echo "Server may still be initializing. Check logs:"
+        echo "  tail -n 50 $LOG_FILE"
+        exit 1
+    fi
+    sleep 1
+done
+success "Server is ready to accept connections"
 
 # Step 3: Test Wyoming endpoints
 header "Step 3: Testing Wyoming Endpoints"

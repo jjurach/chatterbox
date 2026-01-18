@@ -99,6 +99,7 @@ async def main(debug: bool = False) -> None:
 
     # Set up graceful shutdown
     shutdown_event = asyncio.Event()
+    tasks = []
 
     def signal_handler(sig: int, frame: Any) -> None:
         """Handle shutdown signals gracefully.
@@ -109,15 +110,16 @@ async def main(debug: bool = False) -> None:
         """
         logger.info(f"Received signal {sig}, initiating graceful shutdown...")
         shutdown_event.set()
+        # Cancel all tasks to interrupt blocking operations
+        for task in tasks:
+            if not task.done():
+                task.cancel()
 
     # Register signal handlers for common shutdown signals
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     try:
-        # Create tasks for servers
-        tasks = []
-
         # Wyoming server
         logger.info(
             f"Starting Wyoming server in {settings.server_mode} mode "
