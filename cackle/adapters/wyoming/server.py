@@ -311,5 +311,11 @@ class VoiceAssistantServer(AsyncServer):
             logger.info("Preloading TTS voice (this may take a moment)...")
             await self.tts_service.load_voice()
 
-        logger.info(f"Starting Wyoming server on {self.host}:{self.port}")
-        await self.start(self.host, self.port)
+        # Create server from URI and set up handler
+        uri = f"tcp://{self.host}:{self.port}"
+        logger.info(f"Starting Wyoming server on {uri}")
+
+        server = AsyncServer.from_uri(uri)
+
+        # Start the server with event handler
+        await server.start(self.handle_event)
