@@ -9,13 +9,13 @@ from cackle.services import WhisperSTTService
 class STTTool(BaseTool):
     """Tool for transcribing audio to text using Whisper."""
 
-    name = "transcribe_audio"
-    description = (
+    name: str = "transcribe_audio"
+    description: str = (
         "Transcribe audio file to text using Whisper. "
         "Input: path to audio file (WAV, MP3, FLAC). "
         "Output: transcribed text and confidence score."
     )
-    return_direct = False
+    return_direct: bool = False
 
     stt_service: Optional[WhisperSTTService] = None
 

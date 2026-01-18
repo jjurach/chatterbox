@@ -121,6 +121,32 @@ The server will:
 - Initialize a LangChain agent with conversation memory (last 3 exchanges)
 - Use the `get_time` skill to answer time-related queries
 
+### Background Server Management
+
+For development and testing workflows, use the background server runner script that provides reliable process management with logging:
+
+```bash
+# Start server in background
+./scripts/run-server.sh start
+
+# Check server status
+./scripts/run-server.sh status
+
+# Stop the background server
+./scripts/run-server.sh stop
+
+# Restart the server
+./scripts/run-server.sh restart
+```
+
+The script features:
+- **PID tracking**: Uses `./tmp/chatterbox3b-server.pid` to track the process
+- **Comprehensive logging**: All server output logged to `./tmp/chatterbox3b-server.log`
+- **Safe log viewing**: Instructions provided for viewing logs 10-20 lines at a time
+- **Graceful shutdown**: Attempts SIGTERM before SIGKILL if needed
+
+See [Testing with Wyoming Satellite Emulator](docs/testing-wyoming.md) for complete background server management and Wyoming testing instructions.
+
 ### Testing with the Wyoming Client
 
 The `chatterbox3b-wyoming-client` CLI tool allows you to send text directly to the server as if it were a transcribed voice command, without needing the ESP32 device.
@@ -152,6 +178,26 @@ Or run the example directly:
 ```bash
 python examples/wyoming_client_test.py "What time is it?"
 ```
+
+### Testing Push-to-Talk Workflows
+
+The `wyoming-tester` tool allows you to test full push-to-talk workflows by sending WAV audio files to a Wyoming endpoint and capturing responses.
+
+#### Basic Usage
+
+Send a WAV file to test push-to-talk functionality:
+
+```bash
+wyoming-tester --uri tcp://localhost:10700 --file test_tone.wav
+```
+
+This will:
+- Convert the audio to Wyoming format (16kHz, 16-bit, mono)
+- Send it to the Wyoming server
+- Display transcription, intent, and conversation ID
+- Save TTS response audio to `response.wav`
+
+See `wyoming_tester/README.md` for detailed usage instructions.
 
 ### Debug Mode
 

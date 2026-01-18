@@ -7,6 +7,7 @@ from typing import Optional
 
 import numpy as np
 from piper.voice import PiperVoice
+import wave
 
 logger = logging.getLogger(__name__)
 
@@ -16,16 +17,19 @@ class PiperTTSService:
 
     def __init__(
         self,
-        voice: str = "en_US-lessac-medium",
+        model_path: str,
+        config_path: str,
         sample_rate: int = 22050,
     ):
         """Initialize Piper TTS service.
 
         Args:
-            voice: Voice to use. Defaults to "en_US-lessac-medium".
+            model_path: Path to the ONNX model file.
+            config_path: Path to the ONNX config JSON file.
             sample_rate: Sample rate in Hz. Defaults to 22050.
         """
-        self.voice_name = voice
+        self.model_path = model_path
+        self.config_path = config_path
         self.sample_rate = sample_rate
         self.voice: Optional[PiperVoice] = None
         self._loaded = False
@@ -37,14 +41,14 @@ class PiperTTSService:
 
         def _load():
             self.voice = PiperVoice.load(
-                self.voice_name,
-                model_path=None,  # Use default model directory
+                self.model_path,
+                config_path=self.config_path,
             )
 
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, _load)
         self._loaded = True
-        logger.info(f"Loaded Piper voice: {self.voice_name}")
+        logger.info(f"Loaded Piper voice from: {self.model_path}")
 
     async def synthesize(self, text: str) -> bytes:
         """Synthesize text to speech.
@@ -62,16 +66,11 @@ class PiperTTSService:
             raise RuntimeError("Voice failed to load")
 
         def _synthesize():
-            # Use BytesIO to capture audio output
+            audio_stream = self.voice.synthesize(text)
             wav_file = io.BytesIO()
-
-            # Synthesize audio
-            self.voice.synthesize(
-                text,
-                wav_file,
-                speaker_id=None,
-                length_scale=1.0,
-            )
+            with wave.open(wav_file, "wb") as wf:
+                for audio_chunk in audio_stream:
+                    wf.writeframes(audio_chunk.audio_int16_bytes)
 
             wav_file.seek(0)
             audio_bytes = wav_file.read()
@@ -93,13 +92,13 @@ class PiperTTSService:
             await self.load_voice()
 
         def _synthesize():
-            with open(file_path, "wb") as wav_file:
-                self.voice.synthesize(
-                    text,
-                    wav_file,
-                    speaker_id=None,
-                    length_scale=1.0,
-                )
+            with wave.open(file_path, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)  # S16_LE format
+                wf.setframerate(self.sample_rate)
+                audio_stream = self.voice.synthesize(text)
+                for audio_chunk in audio_stream:
+                    wf.writeframes(audio_chunk.audio_int16_bytes)
 
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, _synthesize)

@@ -42,6 +42,7 @@ dependencies = [
     "piper-tts>=1.2.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.24.0",
+    "pydub>=0.25.1",
 ]
 
 [project.optional-dependencies]
@@ -67,6 +68,7 @@ test = [
 chatterbox3b-server = "src.main:cli_main"
 chatterbox3b-wyoming-client = "examples.wyoming_client_test:main"
 chatterbox3b-test-agent = "examples.direct_agent:main"
+wyoming-tester = "wyoming_tester.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/chatterbox3b"
@@ -74,7 +76,7 @@ Repository = "https://github.com/yourusername/chatterbox3b.git"
 Issues = "https://github.com/yourusername/chatterbox3b/issues"
 
 [tool.setuptools]
-packages = ["src", "cackle", "cackle.tools", "cackle.tools.builtin", "cackle.services", "cackle.adapters", "cackle.adapters.wyoming", "cackle.adapters.rest", "examples", "tests"]
+packages = ["src", "cackle", "cackle.tools", "cackle.tools.builtin", "cackle.services", "cackle.adapters", "cackle.adapters.wyoming", "cackle.adapters.rest", "examples", "tests", "wyoming_tester"]
 
 [tool.setuptools.package-dir]
 src = "src"
