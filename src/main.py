@@ -95,6 +95,8 @@ async def main(debug: bool = False) -> None:
         stt_model=settings.stt_model,
         stt_device=settings.stt_device,
         tts_voice=settings.tts_voice,
+        whisper_cache_dir=settings.whisper_cache_dir,
+        piper_cache_dir=settings.piper_cache_dir,
     )
 
     # Set up graceful shutdown
@@ -162,7 +164,7 @@ async def main(debug: bool = False) -> None:
 
 
 def cli_main() -> None:
-    """Entry point for the chatterbox3b-server console script."""
+    """Entry point for the chatterbox-server console script."""
     parser = argparse.ArgumentParser(
         description="Wyoming Voice Assistant Server with STT/TTS"
     )
@@ -188,6 +190,30 @@ def cli_main() -> None:
         default=settings.rest_port,
         help="REST API server port (default: 8080)",
     )
+    parser.add_argument(
+        "--whisper-model",
+        type=str,
+        default="small.en",
+        help="Whisper model size (tiny, base, small, medium, large; default: small.en)",
+    )
+    parser.add_argument(
+        "--piper-voice",
+        type=str,
+        default="en_US-danny-low",
+        help="Piper voice name (default: en_US-danny-low)",
+    )
+    parser.add_argument(
+        "--whisper-cache-dir",
+        type=str,
+        default=None,
+        help="Cache directory for Whisper models (default: ~/.cache/chatterbox/whisper)",
+    )
+    parser.add_argument(
+        "--piper-cache-dir",
+        type=str,
+        default=None,
+        help="Cache directory for Piper voices (default: ~/.cache/chatterbox/piper)",
+    )
     args = parser.parse_args()
 
     # Override settings with CLI arguments if provided
@@ -199,6 +225,20 @@ def cli_main() -> None:
 
     if args.rest_port != settings.rest_port:
         settings.rest_port = args.rest_port
+
+    # Override model settings
+    if args.whisper_model != "small.en":
+        settings.stt_model = args.whisper_model
+
+    if args.piper_voice != "en_US-danny-low":
+        settings.tts_voice = args.piper_voice
+
+    # Store cache directories in settings for later use
+    if args.whisper_cache_dir:
+        settings.whisper_cache_dir = args.whisper_cache_dir
+
+    if args.piper_cache_dir:
+        settings.piper_cache_dir = args.piper_cache_dir
 
     asyncio.run(main(debug=args.debug))
 

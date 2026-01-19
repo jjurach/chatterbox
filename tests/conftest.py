@@ -1,5 +1,5 @@
 """
-Pytest configuration for the chatterbox3b test suite.
+Pytest configuration for the chatterbox test suite.
 
 This module configures pytest behavior and filters deprecation warnings.
 """

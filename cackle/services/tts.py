@@ -3,6 +3,8 @@
 import asyncio
 import io
 import logging
+import os
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -21,6 +23,7 @@ class PiperTTSService:
         model_path: str = None,
         config_path: str = None,
         sample_rate: int = 22050,
+        cache_dir: Optional[str] = None,
     ):
         """Initialize Piper TTS service.
 
@@ -29,14 +32,22 @@ class PiperTTSService:
             model_path: Path to the ONNX model file. If None, inferred from voice.
             config_path: Path to the ONNX config JSON file. If None, inferred from voice.
             sample_rate: Sample rate in Hz. Defaults to 22050.
+            cache_dir: Directory to cache voice models. Defaults to ~/.cache/chatterbox/piper.
         """
         self.voice_name = voice
         # TODO: Add logic to find model and config paths based on voice
-        import os
         import json
 
+        # Setup cache directory
+        if cache_dir is None:
+            cache_dir = str(Path.home() / ".cache" / "chatterbox" / "piper")
+        self.cache_dir = cache_dir
+        # Create cache directory if it doesn't exist
+        Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
+        logger.info(f"Piper cache directory: {self.cache_dir}")
+
         # Hack to allow tests to pass
-        voices_base_dir = os.path.expanduser("~/piper-voices")
+        voices_base_dir = cache_dir
         self.model_path = os.path.join(voices_base_dir, f"{voice}.onnx")
         self.config_path = os.path.join(voices_base_dir, f"{voice}.json")
 

@@ -40,7 +40,7 @@ def create_app(
         Configured FastAPI application
     """
     app = FastAPI(
-        title="Chatterbox3B STT/TTS API",
+        title="Chatterbox STT/TTS API",
         description="Speech-to-Text and Text-to-Speech services",
         version="0.1.0",
     )

@@ -3,6 +3,8 @@
 import asyncio
 import io
 import logging
+import os
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -20,6 +22,7 @@ class WhisperSTTService:
         device: str = "cpu",
         language: Optional[str] = None,
         compute_type: str = "int8",
+        cache_dir: Optional[str] = None,
     ):
         """Initialize Whisper STT service.
 
@@ -28,6 +31,7 @@ class WhisperSTTService:
             device: Device to run on (cpu, cuda). Defaults to "cpu".
             language: Language code (e.g., 'en'). None = auto-detect. Defaults to None.
             compute_type: Compute type (int8, int16, float32, float16). Defaults to "int8".
+            cache_dir: Directory to cache models. Defaults to ~/.cache/chatterbox/whisper.
         """
         self.model_size = model_size
         self.device = device
@@ -35,6 +39,14 @@ class WhisperSTTService:
         self.compute_type = compute_type
         self.model: Optional[WhisperModel] = None
         self._loaded = False
+
+        # Setup cache directory
+        if cache_dir is None:
+            cache_dir = str(Path.home() / ".cache" / "chatterbox" / "whisper")
+        self.cache_dir = cache_dir
+        # Create cache directory if it doesn't exist
+        Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
+        logger.info(f"Whisper cache directory: {self.cache_dir}")
 
     async def load_model(self) -> None:
         """Load the Whisper model asynchronously."""
@@ -46,13 +58,14 @@ class WhisperSTTService:
                 self.model_size,
                 device=self.device,
                 compute_type=self.compute_type,
+                download_root=self.cache_dir,
             )
 
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, _load)
         self._loaded = True
         logger.info(
-            f"Loaded Whisper model: {self.model_size} on {self.device}"
+            f"Loaded Whisper model: {self.model_size} on {self.device} (cache: {self.cache_dir})"
         )
 
     async def transcribe(

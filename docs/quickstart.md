@@ -43,12 +43,12 @@ python examples/direct_agent.py
 To run the agent as a Wyoming protocol server for ESP32 devices:
 
 ```bash
-chatterbox3b-server
+chatterbox-server
 ```
 
 Or with debug logging:
 ```bash
-chatterbox3b-server --debug
+chatterbox-server --debug
 ```
 
 The server will bind to `0.0.0.0:10700` and accept Wyoming protocol connections from ESP32 devices.
@@ -58,7 +58,7 @@ The server will bind to `0.0.0.0:10700` and accept Wyoming protocol connections 
 Run a dedicated speech-to-text service:
 
 ```bash
-chatterbox3b-server --mode stt_only
+chatterbox-server --mode stt_only
 ```
 
 ### TTS-Only Server (Piper Synthesis)
@@ -66,7 +66,7 @@ chatterbox3b-server --mode stt_only
 Run a dedicated text-to-speech service:
 
 ```bash
-chatterbox3b-server --mode tts_only
+chatterbox-server --mode tts_only
 ```
 
 ### Combined Mode (STT + TTS without Agent)
@@ -74,7 +74,7 @@ chatterbox3b-server --mode tts_only
 Run STT and TTS services without the full voice assistant:
 
 ```bash
-chatterbox3b-server --mode combined
+chatterbox-server --mode combined
 ```
 
 ### Enable REST API
@@ -82,7 +82,7 @@ chatterbox3b-server --mode combined
 Run the Wyoming server with a REST API endpoint:
 
 ```bash
-chatterbox3b-server --rest --rest-port 8080
+chatterbox-server --rest --rest-port 8080
 ```
 
 This enables both Wyoming protocol and REST API on separate ports.
@@ -99,7 +99,7 @@ python examples/wyoming_client_test.py "What time is it?"
 
 Or use the installed command:
 ```bash
-chatterbox3b-wyoming-client "Hello"
+chatterbox-wyoming-client "Hello"
 ```
 
 ### Network Testing
@@ -243,7 +243,7 @@ faster_agent = VoiceAssistantAgent(
 
 ## STT/TTS Services
 
-Chatterbox3B now includes dedicated Speech-to-Text and Text-to-Speech services:
+Chatterbox now includes dedicated Speech-to-Text and Text-to-Speech services:
 
 ### Quick Examples
 

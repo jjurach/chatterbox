@@ -1,17 +1,17 @@
 # Testing with Wyoming Satellite Emulator
 
-This guide explains how to use the background server runner script and Wyoming satellite emulator for testing and debugging the chatterbox3b voice assistant integration.
+This guide explains how to use the background server runner script and Wyoming satellite emulator for testing and debugging the chatterbox voice assistant integration.
 
 ## Overview
 
 The testing workflow involves:
-1. Starting the chatterbox3b-server in the background using the runner script
+1. Starting the chatterbox-server in the background using the runner script
 2. Using the Wyoming satellite emulator to send test audio and receive responses
 3. Monitoring server logs for debugging and troubleshooting
 
 ## Prerequisites
 
-- Python environment with chatterbox3b installed (`pip install -e .`)
+- Python environment with chatterbox installed (`pip install -e .`)
 - Wyoming tester tool available (`pip install -e wyoming_tester/`)
 - Audio test files (WAV format, 16-bit, 16kHz recommended)
 - ffmpeg installed for audio format conversion
@@ -31,13 +31,13 @@ The `scripts/run-server.sh` script provides reliable background process manageme
 ```
 [2026-01-18 14:07:05] Starting server...
 [2026-01-18 14:07:05] Launching server in background...
-[2026-01-18 14:07:05] All output will be logged to: /path/to/project/tmp/chatterbox3b-server.log
+[2026-01-18 14:07:05] All output will be logged to: /path/to/project/tmp/chatterbox-server.log
 [2026-01-18 14:07:05] SUCCESS: Server started successfully
 PID: 12345
-Log file: /path/to/project/tmp/chatterbox3b-server.log
+Log file: /path/to/project/tmp/chatterbox-server.log
 
 To monitor startup logs:
-  tail -f /path/to/project/tmp/chatterbox3b-server.log
+  tail -f /path/to/project/tmp/chatterbox-server.log
 
 To check server status:
   ./scripts/run-server.sh status
@@ -54,18 +54,18 @@ To check server status:
 [2026-01-18 14:07:10] Checking server status...
 SUCCESS: Server is running
 PID: 12345
-Command: chatterbox3b-server
+Command: chatterbox-server
 Started: Sat Jan 18 14:07:05 2026
-Log file: /path/to/project/tmp/chatterbox3b-server.log
+Log file: /path/to/project/tmp/chatterbox-server.log
 
 To view recent logs (last 20 lines):
-  tail -n 20 /path/to/project/tmp/chatterbox3b-server.log
+  tail -n 20 /path/to/project/tmp/chatterbox-server.log
 
 To follow logs in real-time:
-  tail -f /path/to/project/tmp/chatterbox3b-server.log
+  tail -f /path/to/project/tmp/chatterbox-server.log
 
 To view logs interactively:
-  less /path/to/project/tmp/chatterbox3b-server.log
+  less /path/to/project/tmp/chatterbox-server.log
 ```
 
 ### Stopping the Server
@@ -79,10 +79,10 @@ To view logs interactively:
 [2026-01-18 14:07:15] Stopping server...
 [2026-01-18 14:07:15] Sending SIGTERM to process 12345...
 SUCCESS: Server stopped
-Log file remains at: /path/to/project/tmp/chatterbox3b-server.log
+Log file remains at: /path/to/project/tmp/chatterbox-server.log
 
 To view shutdown logs:
-  tail -n 20 /path/to/project/tmp/chatterbox3b-server.log
+  tail -n 20 /path/to/project/tmp/chatterbox-server.log
 ```
 
 ### Restarting the Server
@@ -103,23 +103,23 @@ Shows complete usage instructions and examples.
 
 ## Safe Log File Viewing
 
-All server output is logged to `./tmp/chatterbox3b-server.log`. Here are safe ways to view logs without overwhelming your terminal:
+All server output is logged to `./tmp/chatterbox-server.log`. Here are safe ways to view logs without overwhelming your terminal:
 
 ### View Recent Activity (Last 10-20 lines)
 
 ```bash
 # Last 20 lines - good for checking recent errors or activity
-tail -n 20 ./tmp/chatterbox3b-server.log
+tail -n 20 ./tmp/chatterbox-server.log
 
 # Last 10 lines - quick status check
-tail -n 10 ./tmp/chatterbox3b-server.log
+tail -n 10 ./tmp/chatterbox-server.log
 ```
 
 ### Follow Logs in Real-Time
 
 ```bash
 # Follow new log entries as they arrive (Ctrl+C to stop)
-tail -f ./tmp/chatterbox3b-server.log
+tail -f ./tmp/chatterbox-server.log
 ```
 
 **Tip:** Use this when starting the server to monitor startup progress and initial errors.
@@ -128,7 +128,7 @@ tail -f ./tmp/chatterbox3b-server.log
 
 ```bash
 # Use less for searchable, scrollable log viewing
-less ./tmp/chatterbox3b-server.log
+less ./tmp/chatterbox-server.log
 ```
 
 **Navigation in less:**
@@ -144,10 +144,10 @@ less ./tmp/chatterbox3b-server.log
 
 ```bash
 # Show logs from the last hour
-tail -f ./tmp/chatterbox3b-server.log | grep "$(date -d '1 hour ago' '+%Y-%m-%d %H')"
+tail -f ./tmp/chatterbox-server.log | grep "$(date -d '1 hour ago' '+%Y-%m-%d %H')"
 
 # Show error messages only
-grep "ERROR" ./tmp/chatterbox3b-server.log | tail -n 20
+grep "ERROR" ./tmp/chatterbox-server.log | tail -n 20
 ```
 
 ## Wyoming Satellite Emulator Testing
@@ -227,7 +227,7 @@ pip install -e .
 ### 2. Monitor Server Logs
 ```bash
 # In a separate terminal, follow logs
-tail -f ./tmp/chatterbox3b-server.log
+tail -f ./tmp/chatterbox-server.log
 ```
 
 ### 3. Run Wyoming Tests
@@ -253,7 +253,7 @@ wyoming-tester -u tcp://localhost:10700 -f test.wav --verbose
 ### Server Won't Start
 ```bash
 # Check the log file for startup errors
-tail -n 50 ./tmp/chatterbox3b-server.log
+tail -n 50 ./tmp/chatterbox-server.log
 
 # Common issues:
 # - Missing dependencies
@@ -267,7 +267,7 @@ tail -n 50 ./tmp/chatterbox3b-server.log
 curl -v tcp://localhost:10700
 
 # Check server logs for connection attempts
-tail -f ./tmp/chatterbox3b-server.log | grep -i wyoming
+tail -f ./tmp/chatterbox-server.log | grep -i wyoming
 ```
 
 ### Audio Processing Issues
@@ -276,16 +276,16 @@ tail -f ./tmp/chatterbox3b-server.log | grep -i wyoming
 ffmpeg -i test.wav
 
 # Check server logs for STT/TTS errors
-grep -i "stt\|tts\|audio" ./tmp/chatterbox3b-server.log | tail -n 20
+grep -i "stt\|tts\|audio" ./tmp/chatterbox-server.log | tail -n 20
 ```
 
 ### Log File Management
 ```bash
 # Check log file size
-ls -lh ./tmp/chatterbox3b-server.log
+ls -lh ./tmp/chatterbox-server.log
 
 # Archive old logs if needed
-mv ./tmp/chatterbox3b-server.log ./tmp/chatterbox3b-server.log.$(date +%Y%m%d_%H%M%S)
+mv ./tmp/chatterbox-server.log ./tmp/chatterbox-server.log.$(date +%Y%m%d_%H%M%S)
 ```
 
 ## Advanced Usage
@@ -295,10 +295,10 @@ The server can be started with custom arguments by modifying the `SERVER_CMD` in
 
 ```bash
 # Run with debug logging
-chatterbox3b-server --debug > ./tmp/chatterbox3b-server.log 2>&1 &
+chatterbox-server --debug > ./tmp/chatterbox-server.log 2>&1 &
 
 # Run with specific mode
-chatterbox3b-server --mode stt_only > ./tmp/chatterbox3b-server.log 2>&1 &
+chatterbox-server --mode stt_only > ./tmp/chatterbox-server.log 2>&1 &
 ```
 
 ### Multiple Test Sessions
@@ -338,8 +338,8 @@ chmod +x test_wyoming.sh
 ## File Locations
 
 - **Runner Script:** `scripts/run-server.sh`
-- **PID File:** `tmp/chatterbox3b-server.pid`
-- **Log File:** `tmp/chatterbox3b-server.log`
+- **PID File:** `tmp/chatterbox-server.pid`
+- **Log File:** `tmp/chatterbox-server.log`
 - **Test Audio:** Place WAV files in project root or specify full paths
 - **TTS Responses:** `response.wav` (or custom filename with `--output`)
 

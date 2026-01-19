@@ -1,10 +1,10 @@
 # STT/TTS Services Guide
 
-This guide explains how to use the Speech-to-Text (Whisper) and Text-to-Speech (Piper) services in Chatterbox3B.
+This guide explains how to use the Speech-to-Text (Whisper) and Text-to-Speech (Piper) services in Chatterbox.
 
 ## Overview
 
-Chatterbox3B now provides dedicated STT and TTS services through:
+Chatterbox now provides dedicated STT and TTS services through:
 - **Wyoming Protocol** - Native integration with ESP32 and other Wyoming clients
 - **REST API** - JSON-based API for HTTP clients
 - **Agent Tools** - LangChain tools for agent-driven speech processing
@@ -61,13 +61,13 @@ Override settings via command-line:
 
 ```bash
 # Start server in STT-only mode
-chatterbox3b-server --mode stt_only
+chatterbox-server --mode stt_only
 
 # Enable REST API
-chatterbox3b-server --rest --rest-port 8080
+chatterbox-server --rest --rest-port 8080
 
 # Enable debugging
-chatterbox3b-server --debug
+chatterbox-server --debug
 ```
 
 ## Using Wyoming Protocol
@@ -131,7 +131,7 @@ async def example_stt():
 
 Enable the REST API with:
 ```bash
-chatterbox3b-server --rest
+chatterbox-server --rest
 ```
 
 The API will be available at `http://localhost:8080`
@@ -373,7 +373,7 @@ ollama serve
 In another terminal:
 ```bash
 ollama pull llama3.1:8b
-chatterbox3b-server
+chatterbox-server
 ```
 
 ## Examples
@@ -386,7 +386,7 @@ export CHATTERBOX_STT_MODEL=base
 export CHATTERBOX_HOST=0.0.0.0
 export CHATTERBOX_PORT=10700
 
-chatterbox3b-server
+chatterbox-server
 ```
 
 ### Running Full Voice Assistant with REST API
@@ -396,7 +396,7 @@ export CHATTERBOX_SERVER_MODE=full
 export CHATTERBOX_ENABLE_REST=true
 export CHATTERBOX_REST_PORT=8080
 
-chatterbox3b-server
+chatterbox-server
 ```
 
 ### Using Custom Ollama Model
@@ -405,7 +405,7 @@ chatterbox3b-server
 ollama pull mistral:7b
 
 export CHATTERBOX_OLLAMA_MODEL=mistral:7b
-chatterbox3b-server
+chatterbox-server
 ```
 
 ## API Reference

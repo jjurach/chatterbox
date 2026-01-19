@@ -1,4 +1,4 @@
-"""REST API adapter for Chatterbox3B services."""
+"""REST API adapter for Chatterbox services."""
 
 from .api import create_app
 

@@ -22,10 +22,12 @@ class Settings(BaseSettings):
     stt_model: str = "base"  # tiny, base, small, medium, large
     stt_device: str = "cpu"  # cpu, cuda
     stt_language: str | None = None  # None = auto-detect
+    whisper_cache_dir: str | None = None  # None = ~/.cache/chatterbox/whisper
 
     # TTS settings
     tts_voice: str = "en_US-lessac-medium"
     tts_sample_rate: int = 22050
+    piper_cache_dir: str | None = None  # None = ~/.cache/chatterbox/piper
 
     # Service mode
     server_mode: str = "full"  # full, stt_only, tts_only, combined

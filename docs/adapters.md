@@ -43,8 +43,8 @@ asyncio.run(server.run())
 
 **Command Line:**
 ```bash
-chatterbox3b-server
-chatterbox3b-server --debug
+chatterbox-server
+chatterbox-server --debug
 python examples/wyoming_server.py
 ```
 

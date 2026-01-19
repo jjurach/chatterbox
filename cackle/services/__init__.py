@@ -1,4 +1,4 @@
-"""STT and TTS services for Chatterbox3B."""
+"""STT and TTS services for Chatterbox."""
 
 from .stt import WhisperSTTService
 from .tts import PiperTTSService

@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# Chatterbox3B Server Runner Script
+# Chatterbox Server Runner Script
 #
-# This script manages the chatterbox3b-server process in the background.
+# This script manages the chatterbox-server process in the background.
 # It uses a PID file for process tracking and logs all output to a dedicated log file.
 #
 # Usage:
@@ -18,8 +18,8 @@ set -e  # Exit on any error
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-PID_FILE="$PROJECT_ROOT/tmp/chatterbox3b-server.pid"
-LOG_FILE="$PROJECT_ROOT/tmp/chatterbox3b-server.log"
+PID_FILE="$PROJECT_ROOT/tmp/chatterbox-server.pid"
+LOG_FILE="$PROJECT_ROOT/tmp/chatterbox-server.log"
 
 # Configuration for venv
 VENV_BIN="$PROJECT_ROOT/venv/bin"
@@ -338,7 +338,7 @@ LOGGING:
 
 NOTES:
     - Server must be run from the project root directory
-    - Make sure 'chatterbox3b-server' command is available (run 'pip install -e .')
+    - Make sure 'chatterbox-server' command is available (run 'pip install -e .')
     - Log file will grow over time; consider log rotation for long-term use
 EOF
 }

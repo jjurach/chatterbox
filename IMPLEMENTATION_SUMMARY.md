@@ -1,7 +1,7 @@
 # Implementation Summary: Whisper STT and Piper TTS Services
 
 ## Overview
-Successfully implemented comprehensive Speech-to-Text (Whisper) and Text-to-Speech (Piper) services for Chatterbox3B. The implementation includes full integration with Wyoming protocol, REST API, configuration management, agent tools, tests, and documentation.
+Successfully implemented comprehensive Speech-to-Text (Whisper) and Text-to-Speech (Piper) services for Chatterbox. The implementation includes full integration with Wyoming protocol, REST API, configuration management, agent tools, tests, and documentation.
 
 ## Phases Completed
 
@@ -174,17 +174,17 @@ docs/architecture.md (documented new services and flows)
 
 ### Run Full Voice Assistant
 ```bash
-chatterbox3b-server
+chatterbox-server
 ```
 
 ### Run STT-Only Service
 ```bash
-chatterbox3b-server --mode stt_only
+chatterbox-server --mode stt_only
 ```
 
 ### Enable REST API
 ```bash
-chatterbox3b-server --rest --rest-port 8080
+chatterbox-server --rest --rest-port 8080
 ```
 
 ### Transcribe Audio via REST
@@ -258,5 +258,5 @@ pip install -e ".[dev]"
 
 Then run the server with:
 ```bash
-chatterbox3b-server
+chatterbox-server
 ```

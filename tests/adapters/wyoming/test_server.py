@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from cackle.agent import VoiceAssistantAgent
-from cackle.adapters.wyoming import VoiceAssistantServer
+from cackle.adapters.wyoming import VoiceAssistantServer, WyomingServer
 from cackle.tools import get_available_tools
 from cackle.tools.builtin import get_time
 
@@ -66,7 +66,7 @@ async def test_server_tcp_port_opens(server_host: str, server_port: int) -> None
     This test verifies the server can be initialized with custom port settings.
     """
     try:
-        server = VoiceAssistantServer(host=server_host, port=server_port)
+        server = WyomingServer(host=server_host, port=server_port)
     except ImportError:
         pytest.skip("Wyoming library not installed")
 
@@ -79,7 +79,7 @@ def test_port_configuration() -> None:
     """
     Test that the server uses the correct default port configuration.
     """
-    server = VoiceAssistantServer()
+    server = WyomingServer()
     assert server.port == 10700
     assert server.host == "0.0.0.0"
 
@@ -88,7 +88,7 @@ def test_custom_port_configuration() -> None:
     """
     Test that the server can be configured with custom host and port.
     """
-    server = VoiceAssistantServer(host="127.0.0.1", port=9999)
+    server = WyomingServer(host="127.0.0.1", port=9999)
     assert server.host == "127.0.0.1"
     assert server.port == 9999
 
@@ -126,8 +126,11 @@ def test_available_tools() -> None:
     # Verify each tool has required attributes
     for tool in tools:
         assert hasattr(tool, "name")
-        assert hasattr(tool, "func")
+        assert tool.name is not None
+        assert len(tool.name) > 0
         assert hasattr(tool, "description")
+        assert tool.description is not None
+        assert len(tool.description) > 0
 
 
 # ============================================================================
@@ -248,7 +251,11 @@ async def test_ollama_connection_validation_failure() -> None:
     Note: Actual Ollama validation is an integration test and requires
     Ollama to be running. This unit test only verifies server initialization.
     """
-    server = VoiceAssistantServer()
+    # Create mock reader and writer for the connection handler
+    reader = MagicMock(spec=asyncio.StreamReader)
+    writer = MagicMock(spec=asyncio.StreamWriter)
+
+    server = VoiceAssistantServer(reader=reader, writer=writer)
     assert server is not None
 
 
@@ -260,5 +267,9 @@ async def test_ollama_connection_validation_success() -> None:
     Note: Actual Ollama validation is an integration test and requires
     Ollama to be running. This unit test only verifies server initialization.
     """
-    server = VoiceAssistantServer()
+    # Create mock reader and writer for the connection handler
+    reader = MagicMock(spec=asyncio.StreamReader)
+    writer = MagicMock(spec=asyncio.StreamWriter)
+
+    server = VoiceAssistantServer(reader=reader, writer=writer)
     assert server.agent is not None

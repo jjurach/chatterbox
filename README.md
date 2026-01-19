@@ -53,7 +53,7 @@ A monorepo for bootstrapping a voice assistant on the ESP32-S3-BOX-3B hardware u
 
 ```bash
 git clone <repository-url>
-cd chatterbox3b
+cd chatterbox
 ```
 
 ### 2. Set Up Python Environment
@@ -106,7 +106,7 @@ Keep this terminal running in the background while the Wyoming server is active.
 Start the Wyoming server on your Ubuntu host:
 
 ```bash
-chatterbox3b-server
+chatterbox-server
 ```
 
 Or run directly with Python:
@@ -140,8 +140,8 @@ For development and testing workflows, use the background server runner script t
 ```
 
 The script features:
-- **PID tracking**: Uses `./tmp/chatterbox3b-server.pid` to track the process
-- **Comprehensive logging**: All server output logged to `./tmp/chatterbox3b-server.log`
+- **PID tracking**: Uses `./tmp/chatterbox-server.pid` to track the process
+- **Comprehensive logging**: All server output logged to `./tmp/chatterbox-server.log`
 - **Safe log viewing**: Instructions provided for viewing logs 10-20 lines at a time
 - **Graceful shutdown**: Attempts SIGTERM before SIGKILL if needed
 
@@ -149,14 +149,14 @@ See [Testing with Wyoming Satellite Emulator](docs/testing-wyoming.md) for compl
 
 ### Testing with the Wyoming Client
 
-The `chatterbox3b-wyoming-client` CLI tool allows you to send text directly to the server as if it were a transcribed voice command, without needing the ESP32 device.
+The `chatterbox-wyoming-client` CLI tool allows you to send text directly to the server as if it were a transcribed voice command, without needing the ESP32 device.
 
 #### Basic Usage
 
 Send a simple text query to the server:
 
 ```bash
-chatterbox3b-wyoming-client "What time is it?"
+chatterbox-wyoming-client "What time is it?"
 ```
 
 #### Advanced Usage
@@ -164,13 +164,13 @@ chatterbox3b-wyoming-client "What time is it?"
 Connect to a different host and port:
 
 ```bash
-chatterbox3b-wyoming-client "What time is it?" --host 192.168.1.100 --port 10700
+chatterbox-wyoming-client "What time is it?" --host 192.168.1.100 --port 10700
 ```
 
 Enable debug logging:
 
 ```bash
-chatterbox3b-wyoming-client "What time is it?" --debug
+chatterbox-wyoming-client "What time is it?" --debug
 ```
 
 Or run the example directly:
@@ -204,7 +204,7 @@ See `wyoming_tester/README.md` for detailed usage instructions.
 Enable debug mode to see detailed logging of LangChain operations and Wyoming events:
 
 ```bash
-chatterbox3b-server --debug
+chatterbox-server --debug
 ```
 
 In debug mode, the server will log:
@@ -362,7 +362,7 @@ Once flashed:
 
 1. Power on the ESP32-S3-BOX-3B
 2. Ensure it's connected to the same WiFi network as your Ubuntu host
-3. Start the Wyoming server: `chatterbox3b-server`
+3. Start the Wyoming server: `chatterbox-server`
 4. The device should connect and be ready to process voice commands
 
 ## Architecture
@@ -523,7 +523,7 @@ If the Wyoming server fails to connect to Ollama:
 - Verify the `backend_ip` in `firmware/voice-assistant.yaml` matches your Ubuntu host
 - Ensure both devices are on the same WiFi network
 - Check firewall settings on Ubuntu (port 10700 should be open)
-- Verify the Wyoming server is running: `chatterbox3b-server`
+- Verify the Wyoming server is running: `chatterbox-server`
 - Verify Ollama is running in a separate terminal: `ollama run llama3.1:8b`
 
 ### Server Port Already in Use
@@ -531,7 +531,7 @@ If the Wyoming server fails to connect to Ollama:
 If port 10700 is already in use, set the environment variable before running the server:
 
 ```bash
-CHATTERBOX_PORT=9999 chatterbox3b-server
+CHATTERBOX_PORT=9999 chatterbox-server
 ```
 
 Update the port in `firmware/voice-assistant.yaml` accordingly.

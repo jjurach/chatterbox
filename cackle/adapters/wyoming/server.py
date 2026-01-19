@@ -49,6 +49,8 @@ class VoiceAssistantServer(AsyncEventHandler):
         stt_model: str = "base",
         stt_device: str = "cpu",
         tts_voice: str = "en_US-lessac-medium",
+        whisper_cache_dir: Optional[str] = None,
+        piper_cache_dir: Optional[str] = None,
     ):
         """Initialize the Wyoming voice assistant server handler.
 
@@ -64,6 +66,8 @@ class VoiceAssistantServer(AsyncEventHandler):
             stt_model: Whisper model size (tiny, base, small, medium, large)
             stt_device: Device for STT (cpu, cuda)
             tts_voice: Piper voice name
+            whisper_cache_dir: Cache directory for Whisper models
+            piper_cache_dir: Cache directory for Piper voices
         """
         super().__init__(reader, writer)
 
@@ -93,10 +97,14 @@ class VoiceAssistantServer(AsyncEventHandler):
             self.stt_service = WhisperSTTService(
                 model_size=stt_model,
                 device=stt_device,
+                cache_dir=whisper_cache_dir,
             )
 
         if mode in ("tts_only", "combined", "full"):
-            self.tts_service = PiperTTSService(voice=tts_voice)
+            self.tts_service = PiperTTSService(
+                voice=tts_voice,
+                cache_dir=piper_cache_dir,
+            )
 
         logger.info(f"Connection handler initialized (mode: {mode})")
         if debug:
@@ -224,6 +232,16 @@ class VoiceAssistantServer(AsyncEventHandler):
                 await self.write_event(event_to_send)
             return True
 
+        # Text-to-Speech events
+        if isinstance(event, Synthesize) or (hasattr(event, 'type') and event.type == "synthesize"):
+            logger.debug("Synthesis requested")
+            if self.debug:
+                logger.info(f"[{timestamp}] [WYOMING] Synthesize event received")
+            text = getattr(event, 'text', '')
+            if text:
+                await self._handle_synthesize(text)
+            return True
+
         # Handle unknown event types
         logger.debug(f"Unhandled event type: {event_type} (event.type={event_attr_type})")
 
@@ -307,6 +325,58 @@ class VoiceAssistantServer(AsyncEventHandler):
             ),
         )
 
+    async def _handle_synthesize(self, text: str) -> None:
+        """Handle Synthesize event by streaming TTS audio to client.
+
+        Sends a sequence of Wyoming events:
+        1. AudioStart with metadata (rate, width, channels)
+        2. One or more AudioChunk events with PCM audio data
+        3. AudioStop to signal completion
+
+        Args:
+            text: The text to synthesize to speech
+        """
+        if not self.tts_service:
+            logger.error("TTS service not available in this mode")
+            return
+
+        try:
+            logger.info(f"Starting Piper TTS synthesis: '{text}'")
+            # Generate audio from text
+            audio_bytes = await self.tts_service.synthesize(text)
+
+            if not audio_bytes:
+                logger.warning("TTS returned empty audio")
+                return
+
+            logger.info(f"Piper TTS synthesis complete: {len(audio_bytes)} bytes")
+
+            # Send AudioStart with metadata
+            # Piper generates 22050 Hz, 16-bit (2 bytes) mono audio
+            audio_start = AudioStart(
+                rate=22050,
+                width=2,
+                channels=1,
+            )
+            await self.write_event(audio_start.event())
+            logger.debug("Sent AudioStart event")
+
+            # Send audio in chunks (optimal chunk size for network streaming)
+            chunk_size = 4096
+            for i in range(0, len(audio_bytes), chunk_size):
+                chunk = audio_bytes[i:i + chunk_size]
+                audio_chunk = AudioChunk(audio=chunk)
+                await self.write_event(audio_chunk.event())
+                logger.debug(f"Sent AudioChunk: {len(chunk)} bytes ({i//chunk_size + 1} chunks)")
+
+            # Send AudioStop to signal completion
+            audio_stop = AudioStop()
+            await self.write_event(audio_stop.event())
+            logger.info("Sent AudioStop event - TTS stream complete")
+
+        except Exception as e:
+            logger.error(f"Error synthesizing audio: {e}", exc_info=True)
+
     async def _validate_ollama_connection(self) -> bool:
         """Validate that Ollama is accessible and the model is available.
 
@@ -377,6 +447,8 @@ class WyomingServer:
         stt_model: str = "base",
         stt_device: str = "cpu",
         tts_voice: str = "en_US-lessac-medium",
+        whisper_cache_dir: Optional[str] = None,
+        piper_cache_dir: Optional[str] = None,
     ):
         """Initialize the Wyoming server.
 
@@ -392,6 +464,8 @@ class WyomingServer:
             stt_model: Whisper model size (tiny, base, small, medium, large)
             stt_device: Device for STT (cpu, cuda)
             tts_voice: Piper voice name
+            whisper_cache_dir: Cache directory for Whisper models
+            piper_cache_dir: Cache directory for Piper voices
         """
         self.host = host
         self.port = port
@@ -404,6 +478,8 @@ class WyomingServer:
         self.stt_model = stt_model
         self.stt_device = stt_device
         self.tts_voice = tts_voice
+        self.whisper_cache_dir = whisper_cache_dir
+        self.piper_cache_dir = piper_cache_dir
 
     def handler_factory(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -421,6 +497,8 @@ class WyomingServer:
             stt_model=self.stt_model,
             stt_device=self.stt_device,
             tts_voice=self.tts_voice,
+            whisper_cache_dir=self.whisper_cache_dir,
+            piper_cache_dir=self.piper_cache_dir,
         )
 
     async def _validate_ollama_connection(self) -> bool:
@@ -475,12 +553,14 @@ class WyomingServer:
     async def run(self) -> None:
         """Start the Wyoming server and listen for incoming connections.
 
-        This method validates dependencies before starting the server
-        to provide early error detection.
+        This method validates dependencies and pre-loads models before
+        starting the server to provide early error detection and fast response times.
 
         Raises:
             RuntimeError: If required services are not accessible
         """
+        import time
+
         # Validate dependencies based on mode
         if self.mode in ("full", "combined"):
             if not await self._validate_ollama_connection():
@@ -488,8 +568,37 @@ class WyomingServer:
                     "Ollama is not accessible. Please start it first with: ollama serve"
                 )
 
-        # Load STT/TTS models if needed - we'll load them in the handler for now
-        # since each handler needs its own instances
+        # Pre-load STT/TTS models before accepting connections
+        if self.mode in ("stt_only", "combined"):
+            logger.info(f"Initializing STT model: {self.stt_model}...")
+            start_time = time.time()
+            try:
+                stt_service = WhisperSTTService(
+                    model_size=self.stt_model,
+                    device=self.stt_device,
+                    cache_dir=self.whisper_cache_dir,
+                )
+                await stt_service.load_model()
+                elapsed = time.time() - start_time
+                logger.info(f"STT model loaded successfully in {elapsed:.1f}s")
+            except Exception as e:
+                logger.error(f"Failed to load STT model: {e}", exc_info=True)
+                raise RuntimeError(f"Cannot start server: STT model failed to load - {e}")
+
+        if self.mode in ("tts_only", "combined", "full"):
+            logger.info(f"Initializing TTS voice: {self.tts_voice}...")
+            start_time = time.time()
+            try:
+                tts_service = PiperTTSService(
+                    voice=self.tts_voice,
+                    cache_dir=self.piper_cache_dir,
+                )
+                await tts_service.load_voice()
+                elapsed = time.time() - start_time
+                logger.info(f"TTS voice loaded successfully in {elapsed:.1f}s")
+            except Exception as e:
+                logger.error(f"Failed to load TTS voice: {e}", exc_info=True)
+                raise RuntimeError(f"Cannot start server: TTS voice failed to load - {e}")
 
         # Create server from URI and set up handler
         uri = f"tcp://{self.host}:{self.port}"
@@ -505,7 +614,7 @@ class WyomingServer:
         # Start the server with handler factory
         # Use run() instead of start() to block and serve forever
         try:
-            logger.info(f"Calling AsyncServer.run() with handler factory (will block)...")
+            logger.info(f"All models loaded. Server is ready to accept connections...")
             await server.run(self.handler_factory)
             logger.info("AsyncServer.run() completed (server shutting down)")
         except Exception as e:

@@ -177,7 +177,7 @@ agent = VoiceAssistantAgent(...)
 ### As an Application
 The `src/main.py` entry point provides the Wyoming server CLI:
 ```bash
-chatterbox3b-server --debug
+chatterbox-server --debug
 ```
 
 ## Extension Points
