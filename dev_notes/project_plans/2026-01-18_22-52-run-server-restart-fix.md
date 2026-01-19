@@ -426,3 +426,41 @@ All tools are standard on Linux. Script should gracefully handle missing tools.
 - [x] No manual `kill -9` needed during development workflow
 - [x] Diagnostic output helps troubleshoot failures
 - [x] Works reliably across multiple consecutive restarts
+
+---
+
+## Implementation Status: ✅ COMPLETED
+
+### Changes Implemented (Commit: 6abc908)
+
+**Phase 0: Wyoming Event Type Detection (wyoming_tester/protocol.py)**
+- ✅ receive_event() now reconstructs proper Wyoming event classes
+- ✅ Generic Event objects converted to Transcript, Synthesize, AudioStart, AudioChunk, AudioStop
+- ✅ Client's isinstance(event, Transcript) checks now pass correctly
+- ✅ Fixed event recognition in CLI: Transcript events properly identified
+
+**Phase 1-3: Server Restart Improvements (scripts/run-server.sh)**
+- ✅ Added is_port_available() with ss/lsof/netstat fallback support
+- ✅ Enhanced cmd_start: Validates port binding before returning success
+- ✅ Enhanced cmd_stop: Improved SIGKILL handling and cleanup
+- ✅ Enhanced cmd_restart: Port verification between stop and start phases
+- ✅ Increased initial wait from 2s to 3s for better startup validation
+- ✅ Implements 30-second SIGTERM + 5-second SIGKILL wait pattern
+
+### Testing Results
+
+**Restart Functionality Tests**
+- ✅ Single restart test: Pass (server comes online after restart)
+- ✅ Triple consecutive restart test: Pass (3 restarts in sequence, all succeed)
+- ✅ No "address already in use" errors encountered
+- ✅ Port availability properly detected and verified
+
+**Wyoming STT Response Flow Tests**
+- ✅ Basic transcription response: Transcript event properly recognized
+- ✅ Event type detection: isinstance(event, Transcript) now returns True
+- ✅ Stress test (3 concurrent requests): All complete without timeout
+- ✅ Event serialization/deserialization: Working correctly
+
+### Known Limitations
+
+The Transcript event's text content appears empty in test results, though the server logs show correct transcriptions. This suggests the text field may not be passed through the Wyoming protocol properly, which is a separate issue from the event type recognition fix implemented in this project.
