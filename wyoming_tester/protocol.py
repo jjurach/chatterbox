@@ -8,8 +8,10 @@ from urllib.parse import urlparse
 
 try:
     from wyoming.audio import AudioChunk, AudioStart, AudioStop
+    from wyoming.asr import Transcript
     from wyoming.event import Event
     from wyoming.pipeline import PipelineStage, RunPipeline
+    from wyoming.tts import Synthesize
     WYOMING_AVAILABLE = True
 except ImportError:
     WYOMING_AVAILABLE = False

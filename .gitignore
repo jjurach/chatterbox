@@ -155,3 +155,4 @@ tmp/
 *.out
 .aider*
 *.bak
+session_*.md
