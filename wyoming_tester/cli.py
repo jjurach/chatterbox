@@ -78,8 +78,7 @@ Examples:
 
     try:
         from wyoming.audio import AudioChunk, AudioStart, AudioStop
-        from wyoming.pipeline import RunPipeline, PipelineStage
-        from wyoming.asr import Transcript, Transcribe
+        from wyoming.asr import Transcript
         from wyoming.tts import Synthesize
     except ImportError as e:
         logger.error(f"Missing required Wyoming library: {e}")
@@ -106,12 +105,10 @@ Examples:
         if args.context:
             logger.info(f"Conversation context: {args.context}")
 
-        # Connect and run STT workflow
+        # Connect and send audio (satellite mode)
         with client:
-            # Send Transcribe event with audio data
-            transcribe_event = Transcribe()
-            client.send_event(transcribe_event)
-            logger.info("Sent transcribe event")
+            # Satellite protocol: Send audio events only. Server will automatically
+            # transcribe when AudioStop is received.
 
             # Send AudioStart event
             audio_start_event = AudioStart(

@@ -139,6 +139,22 @@ class VoiceAssistantServer(AsyncEventHandler):
             logger.debug("Audio stream stopped")
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] AudioStop event received")
+
+            # Auto-transcribe in satellite mode (full)
+            if self.mode == "full":
+                logger.debug("Auto-transcribing audio in satellite mode")
+                if self.debug:
+                    logger.info(f"[{timestamp}] [WYOMING] Auto-transcribe triggered")
+
+                try:
+                    response_event = await self._handle_transcribe(Transcribe())
+                    if response_event:
+                        await self.write_event(response_event)
+                except Exception as e:
+                    logger.error(f"Error in auto-transcription: {e}", exc_info=True)
+                finally:
+                    self.audio_buffer.clear()
+
             return True
 
         # Speech recognition events
