@@ -14,7 +14,7 @@ import httpx
 from wyoming.asr import Transcript, Transcribe
 from wyoming.audio import AudioChunk, AudioStart, AudioStop
 from wyoming.event import Event
-from wyoming.server import AsyncServer
+from wyoming.server import AsyncServer, AsyncEventHandler
 from wyoming.tts import Synthesize, SynthesizeVoice
 
 from cackle.agent import VoiceAssistantAgent
@@ -23,7 +23,7 @@ from cackle.services import WhisperSTTService, PiperTTSService
 logger = logging.getLogger(__name__)
 
 
-class VoiceAssistantServer(AsyncServer):
+class VoiceAssistantServer(AsyncEventHandler):
     """Wyoming protocol server for the voice assistant.
 
     This server handles incoming connections from ESP32 devices, processes
@@ -38,8 +38,8 @@ class VoiceAssistantServer(AsyncServer):
 
     def __init__(
         self,
-        host: str | None = None,
-        port: int | None = None,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
         ollama_base_url: str = "http://localhost:11434/v1",
         ollama_model: str = "llama3.1:8b",
         ollama_temperature: float = 0.7,
@@ -50,11 +50,11 @@ class VoiceAssistantServer(AsyncServer):
         stt_device: str = "cpu",
         tts_voice: str = "en_US-lessac-medium",
     ):
-        """Initialize the Wyoming voice assistant server.
+        """Initialize the Wyoming voice assistant server handler.
 
         Args:
-            host: Host to bind to (default: 0.0.0.0)
-            port: Port to bind to (default: 10700)
+            reader: Stream reader for the connection
+            writer: Stream writer for the connection
             ollama_base_url: Base URL for Ollama's OpenAI-compatible API
             ollama_model: The Ollama model to use
             ollama_temperature: Model temperature for response generation
@@ -65,11 +65,9 @@ class VoiceAssistantServer(AsyncServer):
             stt_device: Device for STT (cpu, cuda)
             tts_voice: Piper voice name
         """
-        super().__init__()
+        super().__init__(reader, writer)
 
         # Server settings
-        self.host = host or "0.0.0.0"
-        self.port = port or 10700
         self.ollama_base_url = ollama_base_url
         self.debug = debug
         self.mode = mode
@@ -100,11 +98,11 @@ class VoiceAssistantServer(AsyncServer):
         if mode in ("tts_only", "combined", "full"):
             self.tts_service = PiperTTSService(voice=tts_voice)
 
-        logger.info(f"Server initialized on {self.host}:{self.port} (mode: {mode})")
+        logger.info(f"Connection handler initialized (mode: {mode})")
         if debug:
-            logger.info("Server debug mode enabled")
+            logger.info("Debug mode enabled")
 
-    async def handle_event(self, event: Event) -> Optional[Event]:
+    async def handle_event(self, event: Event) -> bool:
         """Handle incoming Wyoming protocol events.
 
         This method is called for each event received from a connected client.
@@ -114,7 +112,7 @@ class VoiceAssistantServer(AsyncServer):
             event: The incoming event from the ESP32 device
 
         Returns:
-            An optional response event to send back to the client
+            True to continue the connection, False to disconnect
         """
         timestamp = datetime.now().isoformat()
         event_type = type(event).__name__
@@ -125,7 +123,7 @@ class VoiceAssistantServer(AsyncServer):
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] AudioStart event received")
             self.audio_buffer.clear()
-            return None
+            return True
 
         if isinstance(event, AudioChunk):
             logger.debug(f"Received audio chunk: {len(event.audio)} bytes")
@@ -135,20 +133,23 @@ class VoiceAssistantServer(AsyncServer):
                 )
             # Buffer audio for STT processing
             self.audio_buffer.extend(event.audio)
-            return None
+            return True
 
         if isinstance(event, AudioStop):
             logger.debug("Audio stream stopped")
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] AudioStop event received")
-            return None
+            return True
 
         # Speech recognition events
         if isinstance(event, Transcribe):
             logger.debug("Transcription requested")
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] Transcribe event received")
-            return await self._handle_transcribe(event)
+            response_event = await self._handle_transcribe(event)
+            if response_event:
+                await self.write_event(response_event)
+            return True
 
         if isinstance(event, Transcript):
             logger.info(f"Received transcript: {event.text}")
@@ -156,12 +157,15 @@ class VoiceAssistantServer(AsyncServer):
                 logger.info(
                     f"[{timestamp}] [WYOMING] Transcript received: {event.text}"
                 )
-            return await self._process_transcript(event)
+            response_event = await self._process_transcript(event)
+            if response_event:
+                await self.write_event(response_event)
+            return True
 
         logger.debug(f"Unhandled event type: {event_type}")
         if self.debug:
             logger.debug(f"[{timestamp}] [WYOMING] Unhandled event: {event_type}")
-        return None
+        return True
 
     async def _handle_transcribe(self, event: Transcribe) -> Optional[Event]:
         """Handle Transcribe event by running STT on buffered audio.
@@ -286,6 +290,122 @@ class VoiceAssistantServer(AsyncServer):
             logger.info("Make sure Ollama is running: ollama serve")
             return False
 
+    async def disconnect(self) -> None:
+        """Called when client disconnects."""
+        logger.debug("Client disconnected")
+
+
+class WyomingServer:
+    """Wyoming server that manages connections and handlers."""
+
+    def __init__(
+        self,
+        host: str = "0.0.0.0",
+        port: int = 10700,
+        ollama_base_url: str = "http://localhost:11434/v1",
+        ollama_model: str = "llama3.1:8b",
+        ollama_temperature: float = 0.7,
+        conversation_window_size: int = 3,
+        debug: bool = False,
+        mode: str = "full",
+        stt_model: str = "base",
+        stt_device: str = "cpu",
+        tts_voice: str = "en_US-lessac-medium",
+    ):
+        """Initialize the Wyoming server.
+
+        Args:
+            host: Host to bind to
+            port: Port to bind to
+            ollama_base_url: Base URL for Ollama's OpenAI-compatible API
+            ollama_model: The Ollama model to use
+            ollama_temperature: Model temperature for response generation
+            conversation_window_size: Number of messages to keep in memory
+            debug: Enable debug mode with enhanced Wyoming event logging
+            mode: Server mode - 'full' (VA), 'stt_only', 'tts_only', or 'combined'
+            stt_model: Whisper model size (tiny, base, small, medium, large)
+            stt_device: Device for STT (cpu, cuda)
+            tts_voice: Piper voice name
+        """
+        self.host = host
+        self.port = port
+        self.ollama_base_url = ollama_base_url
+        self.ollama_model = ollama_model
+        self.ollama_temperature = ollama_temperature
+        self.conversation_window_size = conversation_window_size
+        self.debug = debug
+        self.mode = mode
+        self.stt_model = stt_model
+        self.stt_device = stt_device
+        self.tts_voice = tts_voice
+
+    def handler_factory(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> VoiceAssistantServer:
+        """Create a new handler for each connection."""
+        return VoiceAssistantServer(
+            reader=reader,
+            writer=writer,
+            ollama_base_url=self.ollama_base_url,
+            ollama_model=self.ollama_model,
+            ollama_temperature=self.ollama_temperature,
+            conversation_window_size=self.conversation_window_size,
+            debug=self.debug,
+            mode=self.mode,
+            stt_model=self.stt_model,
+            stt_device=self.stt_device,
+            tts_voice=self.tts_voice,
+        )
+
+    async def _validate_ollama_connection(self) -> bool:
+        """Validate that Ollama is accessible and the model is available.
+
+        Checks connectivity to the Ollama service and verifies that the
+        configured model is downloaded and available.
+
+        Returns:
+            True if Ollama is accessible, False otherwise
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                # Check Ollama API endpoint
+                response = await client.get(
+                    f"{self.ollama_base_url.rsplit('/v1', 1)[0]}/api/tags",
+                    timeout=5.0,
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"Ollama API returned status {response.status_code}")
+                    return False
+
+                # Check if the configured model is available
+                try:
+                    models_data = response.json()
+                    models = models_data.get("models", [])
+                    model_names = [m.get("name") for m in models]
+
+                    if self.ollama_model not in model_names:
+                        logger.warning(
+                            f"Model {self.ollama_model} not found. "
+                            f"Available models: {model_names}"
+                        )
+                        logger.info(
+                            f"Download the model with: ollama pull {self.ollama_model}"
+                        )
+                        return False
+
+                    logger.info("✓ Ollama connection validated successfully")
+                    return True
+
+                except Exception as e:
+                    logger.error(f"Error parsing Ollama response: {e}")
+                    return False
+
+        except Exception as e:
+            logger.error(f"Failed to connect to Ollama: {e}")
+            logger.info("Make sure Ollama is running: ollama serve")
+            return False
+
     async def run(self) -> None:
         """Start the Wyoming server and listen for incoming connections.
 
@@ -302,20 +422,14 @@ class VoiceAssistantServer(AsyncServer):
                     "Ollama is not accessible. Please start it first with: ollama serve"
                 )
 
-        # Load STT/TTS models if needed
-        if self.stt_service:
-            logger.info("Preloading STT model (this may take a moment)...")
-            await self.stt_service.load_model()
-
-        if self.tts_service:
-            logger.info("Preloading TTS voice (this may take a moment)...")
-            await self.tts_service.load_voice()
+        # Load STT/TTS models if needed - we'll load them in the handler for now
+        # since each handler needs its own instances
 
         # Create server from URI and set up handler
         uri = f"tcp://{self.host}:{self.port}"
-        logger.info(f"Starting Wyoming server on {uri}")
+        logger.info(f"Starting Wyoming server on {uri} (mode: {self.mode})")
 
         server = AsyncServer.from_uri(uri)
 
-        # Start the server with event handler
-        await server.start(self.handle_event)
+        # Start the server with handler factory
+        await server.start(self.handler_factory)

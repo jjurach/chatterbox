@@ -66,18 +66,28 @@ class WyomingClient:
             self.connected = False
             logger.info("Disconnected")
 
-    def send_event(self, event: Event) -> None:
+    def send_event(self, event) -> None:
         """Send Wyoming event to server.
 
         Args:
-            event: Wyoming Event object to send
+            event: Wyoming event object (AudioStart, etc.)
         """
         if not self.connected or not self.socket:
             raise ConnectionError("Not connected")
 
         try:
-            event_bytes = event.to_bytes()
-            self.socket.sendall(event_bytes)
+            # Get the actual Event object
+            actual_event = event.event()
+            event_bytes = actual_event.to_dict()
+            # Serialize as JSON line (Wyoming protocol format)
+            import json
+            json_line = json.dumps(event_bytes, ensure_ascii=False)
+            self.socket.sendall((json_line + '\n').encode('utf-8'))
+
+            # Send payload if present
+            if actual_event.payload:
+                self.socket.sendall(actual_event.payload)
+
             logger.debug(f"Sent event: {type(event).__name__}")
         except Exception as e:
             raise ConnectionError(f"Failed to send event: {e}")

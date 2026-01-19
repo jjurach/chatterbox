@@ -22,7 +22,7 @@ from typing import Any
 from langchain_core import globals as langchain_globals
 
 from cackle.config import get_settings
-from cackle.adapters.wyoming import VoiceAssistantServer
+from cackle.adapters.wyoming import WyomingServer
 
 # Load configuration
 settings = get_settings()
@@ -83,7 +83,7 @@ async def main(debug: bool = False) -> None:
         logger.info("LangChain debug mode enabled")
 
     # Create Wyoming server with configuration
-    server = VoiceAssistantServer(
+    server = WyomingServer(
         host=settings.host,
         port=settings.port,
         ollama_base_url=settings.ollama_base_url,

@@ -78,8 +78,8 @@ Examples:
 
     try:
         from wyoming.audio import AudioChunk, AudioStart, AudioStop
-        from wyoming.pipeline import RunPipeline
-        from wyoming.asr import Transcript
+        from wyoming.pipeline import RunPipeline, PipelineStage
+        from wyoming.asr import Transcript, Transcribe
         from wyoming.tts import Synthesize
     except ImportError as e:
         logger.error(f"Missing required Wyoming library: {e}")
@@ -106,16 +106,12 @@ Examples:
         if args.context:
             logger.info(f"Conversation context: {args.context}")
 
-        # Connect and run PTT workflow
+        # Connect and run STT workflow
         with client:
-            # Send RunPipeline event
-            run_pipeline_event = RunPipeline(
-                start_stage="stt",
-                end_stage="tts",
-                conversation_id=args.context if args.context else None
-            )
-            client.send_event(run_pipeline_event)
-            logger.info("Sent run-pipeline event")
+            # Send Transcribe event with audio data
+            transcribe_event = Transcribe()
+            client.send_event(transcribe_event)
+            logger.info("Sent transcribe event")
 
             # Send AudioStart event
             audio_start_event = AudioStart(
@@ -129,7 +125,12 @@ Examples:
             # Send audio chunks
             logger.info("Sending audio data...")
             for chunk in processor.get_pcm_chunks(audio):
-                audio_chunk_event = AudioChunk(audio=chunk)
+                audio_chunk_event = AudioChunk(
+                    rate=16000,
+                    width=2,
+                    channels=1,
+                    audio=chunk
+                )
                 client.send_event(audio_chunk_event)
 
             # Send AudioStop event
