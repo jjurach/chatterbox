@@ -179,7 +179,7 @@ cmd_start() {
     # Verify server is actually listening on port (port should be IN USE)
     local port_wait=0
     local port_max_wait=10
-    while is_port_available "$port" 2>/dev/null && [[ $port_wait -lt $port_max_wait ]]; do
+    while is_port_available "$port" && [[ $port_wait -lt $port_max_wait ]]; do
         if ! kill -0 "$pid" 2>/dev/null; then
             error "Server process died before binding to port"
             echo "Check the log file for errors:"
@@ -269,21 +269,20 @@ cmd_restart() {
 
     # Verify port is actually free before attempting to start
     local verify_count=0
-    while ! is_port_available "$port" && [[ $verify_count -lt 20 ]]; do
+    while [[ $verify_count -lt 20 ]]; do
+        if is_port_available "$port" 2>/dev/null; then
+            log "Port $port is available for restart"
+            break
+        fi
         log "Verifying port $port is released... ($verify_count/20)"
         sleep 1
         ((verify_count++))
     done
 
-    if ! is_port_available "$port"; then
-        warning "Port $port still appears in use after stop"
-        log "Waiting additional time for socket cleanup..."
+    # Additional wait if port is still in use
+    if ! is_port_available "$port" 2>/dev/null; then
+        warning "Port $port still appears in use after stop, waiting additional time..."
         sleep 5
-
-        if ! is_port_available "$port"; then
-            error "Port $port could not be released. Restart failed."
-            exit 1
-        fi
     fi
 
     # Start the server
