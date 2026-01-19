@@ -1,13 +1,16 @@
 # Change: Remove Forced Default Model for Claude Executor
 
 **Date**: 2026-01-19
+**Status**: ✅ COMPLETE
 **Related Project Plan**: `/dev_notes/project_plans/2026-01-19_01-15-fix-claude-executor-model-handling.md`
 
 ---
 
 ## Overview
 
-Removed forced default model assignment (`claude-3-5-haiku-20241022`) when invoking the claude executor via oneshot. When users don't specify a model with `--worker-model` or `--auditor-model`, the executor now passes `None`/empty to allow Claude to use its own default model selection, rather than forcing an outdated or unavailable model.
+Removed forced default model assignment across four files in the oneshot project. Now when users don't specify a model with `--worker-model` or `--auditor-model`, the executor passes `None`/empty to the claude command, allowing Claude to use its own default model selection.
+
+The key fix: The `--model` flag is now only included in the claude command when a model is explicitly provided. Without it, claude works with its own defaults instead of a forced (potentially outdated or unavailable) model.
 
 ---
 
@@ -15,48 +18,51 @@ Removed forced default model assignment (`claude-3-5-haiku-20241022`) when invok
 
 When running:
 ```bash
-oneshot --verbose --debug --executor claude "what is the capital of france?"
+oneshot --verbose --debug --executor claude "what is the capital of greece?"
 ```
 
-The system failed with:
+The system forced Claude to use `claude-3-5-sonnet-20241022`, which resulted in:
 ```
-API Error: 404 {"type":"error","error":{"type":"not_found_error","message":"model: claude-3-5-haiku-20241022"},...}
+API Error: 404 {"type":"error","error":{"type":"not_found_error","message":"model: claude-3-5-sonnet-20241022"},...}
 ```
 
-The issue was that oneshot was forcing the claude executor to use a hardcoded model (`claude-3-5-haiku-20241022`) even when the user didn't specify one. This model either doesn't exist or isn't available in the user's API configuration.
+The issue was that FOUR separate mechanisms were forcing a model:
+1. CLI argument parser defaults
+2. Config file loader and `apply_executor_defaults()`
+3. ProviderConfig validation
+4. Command-line building
 
 ---
 
 ## Files Modified
 
-### `/home/phaedrus/AiSpace/oneshot/src/cli/oneshot_cli.py`
+### 1. `/home/phaedrus/AiSpace/oneshot/src/cli/oneshot_cli.py`
+- Removed forced model assignments in worker and auditor provider creation
+- Claude executor now uses `model=None` when no model is explicitly provided
+- **Commits**: 34e7d6f, cc45780
 
-**Change 1: Worker Provider Configuration (lines 278-298)**
-- **Before**: Lines 284-285 forced `model = "claude-3-5-haiku-20241022"` when executor was "claude" and no model provided
-- **After**: Removed forced model assignment; claude executor now receives `model=None` or the explicitly provided model
-- **Impact**: For claude executor with no `--worker-model`, model parameter is now `None`
+### 2. `/home/phaedrus/AiSpace/oneshot/src/oneshot/config.py`
+- Modified `apply_executor_defaults()` to NOT force models for claude executor
+- Removed: `config["worker_model"] = "claude-3-5-haiku-20241022"`
+- **Commit**: cc45780
 
-**Change 2: Auditor Provider Configuration (lines 316-336)**
-- **Before**: Lines 323-325 forced `model = "claude-3-5-haiku-20241022"` when executor was "claude" and no model provided
-- **After**: Removed forced model assignment; claude executor now receives `model=None` or the explicitly provided model
-- **Impact**: For claude executor with no `--auditor-model`, model parameter is now `None`
+### 3. `/home/phaedrus/AiSpace/oneshot/src/oneshot/providers/__init__.py`
+- Removed model requirement validation from `ProviderConfig.__post_init__()`
+- Removed: `raise ValueError("claude executor requires 'model' field")`
+- Now allows model to be optional for claude executor
+- **Commit**: cc45780
 
-**Change 3: Legacy API Configuration (lines 341-353)**
-- **Before**: Lines 357-364 forced default models for both worker and auditor
-  ```python
-  else:  # claude
-      default_worker = "claude-3-5-haiku-20241022"
-      default_auditor = "claude-3-5-haiku-20241022"
-      if args.worker_model is None:
-          args.worker_model = default_worker
-      if args.auditor_model is None:
-          args.auditor_model = default_auditor
+### 4. `/home/phaedrus/AiSpace/oneshot/src/oneshot/oneshot.py`
+- Modified `call_executor()` function to conditionally include `--model` flag
+- Modified `call_executor_async()` function with same logic
+- **Before**: Always `claude -p --model {model} --dangerously-skip-permissions`
+- **After**: Only includes `--model` if model is provided:
+  ```bash
+  claude -p --dangerously-skip-permissions  # No model
+  # OR
+  claude -p --model claude-opus-4-1 --dangerously-skip-permissions  # With model
   ```
-- **After**: Removed entire block; added single line comment explaining claude uses its own defaults
-  ```python
-  # For claude executor, use its own default model selection (don't force a model)
-  ```
-- **Impact**: Legacy API path now allows claude to use its own default (doesn't force None or a specific model)
+- **Commit**: d88d5d2
 
 ---
 
@@ -64,60 +70,81 @@ The issue was that oneshot was forcing the claude executor to use a hardcoded mo
 
 ### Behavioral Changes
 
-1. **Without `--worker-model` flag**:
-   - **Before**: Claude forced to use `claude-3-5-haiku-20241022`
-   - **After**: Claude uses its own default model selection
+1. **Command-line without model flag**:
+   - **Before**: Claude forced to use hardcoded model → 404 error
+   - **After**: Claude uses its own default model → Success ✅
 
-2. **With `--worker-model claude-opus-4-1` flag**:
-   - **Before**: Model specification used (already worked)
-   - **After**: Model specification still used (unchanged)
+2. **Command-line with explicit model**:
+   - **Before**: Model specified in command
+   - **After**: Model specified in command (unchanged) ✅
 
-3. **Error Behavior**:
-   - **Before**: 404 "model not found" error when using outdated model
-   - **After**: Claude API will respond with appropriate model selection or error if truly misconfigured
+3. **Config file influence**:
+   - **Before**: Config file could force models
+   - **After**: Config file can provide models, but not required
 
-### Affected Scenarios
+### Test Results
 
-- ✅ `oneshot --executor claude "task"` → Now works with claude's default
-- ✅ `oneshot --executor claude --worker-model claude-opus-4-1 "task"` → Still works with specified model
-- ✅ `oneshot --executor claude --verbose --debug "task"` → Now works
-- ✅ `oneshot --executor cline "task"` → Unchanged (still forces model=None)
-- ✅ `oneshot --executor aider "task"` → Unchanged (still forces model=None)
+Tested with:
+```bash
+oneshot --executor claude "what is the capital of greece?"
+```
+
+**Output**:
+```
+[DEBUG] Command: claude -p --dangerously-skip-permissions
+[BUFFER] Worker Output:
+  ```json
+  {
+    "status": "DONE",
+    "result": "Athens",
+    "confidence": "high",
+    ...
+  }
+  ```
+```
+
+✅ Success! Claude responded correctly without forced model.
 
 ---
 
-## Testing Strategy
+## Git Commits
 
-### Manual Testing
+1. **34e7d6f**: Fix claude executor model handling: allow default model selection
+   - Initial CLI-level fixes
 
-1. **Test 1: Claude without model specification**
-   ```bash
-   oneshot --executor claude "what is the capital of france?"
-   ```
-   - **Expected**: Executes successfully, claude uses its own default model
-   - **Previously Failed**: Yes (404 error)
+2. **cc45780**: Fix: Remove ALL forced default model assignments for claude executor
+   - Config, provider validation, and CLI fixes
 
-2. **Test 2: Claude with explicit model**
-   ```bash
-   oneshot --executor claude --worker-model claude-opus-4-1 "what is 2+2?"
-   ```
-   - **Expected**: Executes successfully with specified model
-   - **Previously Failed**: No (already worked)
+3. **d88d5d2**: Fix: Make --model flag optional in claude command invocation
+   - Command-building logic to conditionally include `--model`
 
-3. **Test 3: Claude with verbose/debug flags**
-   ```bash
-   oneshot --verbose --debug --executor claude "test query"
-   ```
-   - **Expected**: Executes successfully with debug output
-   - **Previously Failed**: Yes (404 error)
+---
 
-4. **Test 4: Other executors unchanged**
-   ```bash
-   oneshot --executor aider "task"
-   oneshot --executor cline "task"
-   ```
-   - **Expected**: Unchanged behavior for other executors
-   - **Previously Failed**: No
+## Configuration Note
+
+Users who have existing `~/.oneshot.json` files with outdated models (e.g., `claude-3-5-sonnet-20241022`) should:
+
+**Option 1**: Clear model fields in ~/.oneshot.json:
+```json
+{
+  "executor": "claude",
+  "worker_model": null,
+  "auditor_model": null,
+  ...
+}
+```
+
+**Option 2**: Update to valid models:
+```json
+{
+  "executor": "claude",
+  "worker_model": "claude-opus-4-1",
+  "auditor_model": "claude-opus-4-1",
+  ...
+}
+```
+
+**Option 3**: Remove ~/.oneshot.json entirely to use defaults
 
 ---
 
@@ -125,48 +152,45 @@ The issue was that oneshot was forcing the claude executor to use a hardcoded mo
 
 ### Low Risk
 
-**Why**: This change is **removing** a forced configuration, not adding new complexity. The change:
-- Reduces forced assumptions about model availability
-- Allows claude to use its own defaults
-- Maintains explicit model specification when provided
-- Doesn't affect other executors (cline, aider)
+- **Why**: Removing forced configuration, not adding complexity
+- **Effect**: Reduces assumptions about model availability
+- **Reversibility**: Easy to revert if needed
+- **Other executors**: Unchanged (cline, aider still work normally)
 
-### Potential Issues & Mitigations
+### Mitigation
 
-1. **Issue**: Users may not understand what default model will be used
-   - **Mitigation**: Claude Code's documentation will clarify its default model behavior
-
-2. **Issue**: If user's API is truly misconfigured, errors won't mention the default model
-   - **Mitigation**: This is actually better - errors will be from the API itself, not from oneshot
-
-3. **Issue**: Breaking change for users who relied on the explicit model name in errors
-   - **Mitigation**: This is extremely unlikely; users were complaining about these errors
+- Explicit model specification via CLI still works: `--worker-model claude-opus-4-1`
+- Configuration files can still set models
+- Only removes forced defaults, doesn't prevent model selection
 
 ---
 
-## Rollback Plan
+## Testing Checklist
 
-If needed, rollback is simple:
-1. Restore the three code sections in `/src/cli/oneshot_cli.py`
-2. Re-add the forced model assignments
-3. Users will need to either upgrade oneshot or explicitly specify models
-
----
-
-## Notes
-
-- The removed model `claude-3-5-haiku-20241022` may have been deprecated or replaced
-- Claude's default model selection is more reliable than maintaining a hardcoded list
-- Users can still override with `--worker-model` if needed
-- The actual Claude executor (Claude Code's feature) will handle model selection when not forced
-
----
-
-## Verification Checklist
-
-- [x] Code changes applied correctly
-- [x] All three forced model assignments removed
-- [x] Comment added explaining claude uses its own defaults
+- [x] Claude without model specification works
+- [x] Claude with explicit model specification works
+- [x] Verbose/debug flags work with claude
 - [x] Other executors (cline, aider) unchanged
-- [x] Explicit model specification still works
-- [x] Change documented with clear before/after behavior
+- [x] Command doesn't include `--model` flag when not specified
+- [x] JSON response parsing works correctly
+- [x] Async execution path also fixed
+- [x] Config file with null models works
+
+---
+
+## Verification Command
+
+To verify the fix:
+
+```bash
+# With no forced model (should work now)
+oneshot --executor claude "What is the capital of Greece?"
+
+# With explicit model (should also work)
+oneshot --executor claude --worker-model claude-opus-4-1 "Test question"
+
+# Check the debug output
+oneshot --debug --executor claude "Test" 2>&1 | grep -E "Command:|model:"
+```
+
+Expected output for first command: `Command: claude -p --dangerously-skip-permissions` (no `--model` flag)
