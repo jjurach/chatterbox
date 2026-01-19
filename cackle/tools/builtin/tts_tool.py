@@ -20,6 +20,17 @@ class TTSTool(BaseTool):
 
     tts_service: Optional[PiperTTSService] = None
 
+    def __init__(self, *args, **kwargs):
+        """Initialization method."""
+        kwargs['name'] = "synthesize_speech"
+        kwargs['description'] = (
+            "Synthesize text to speech using Piper TTS. "
+            "Input: text to synthesize. "
+            "Output: confirmation that speech was synthesized."
+        )
+        kwargs['func'] = self._run
+        super().__init__(*args, **kwargs)
+
     def _initialize_service(self) -> None:
         """Initialize the TTS service if not already done."""
         if self.tts_service is None:

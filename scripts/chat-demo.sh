@@ -63,6 +63,8 @@ header() {
 # Parse command line arguments
 SERVER_URI="$DEFAULT_URI"
 TEST_FILE="$DEFAULT_FILE"
+PIPER_DEMO_MODE=false
+PIPER_TEXT="Hello, this is a test of the Piper text-to-speech system with caching."
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -74,25 +76,37 @@ while [[ $# -gt 0 ]]; do
             TEST_FILE="$2"
             shift 2
             ;;
+        --piper-demo)
+            PIPER_DEMO_MODE=true
+            shift
+            ;;
+        --piper-text)
+            PIPER_TEXT="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "Wyoming Voice Assistant Demo Script"
             echo ""
             echo "USAGE:"
             echo "    $0 [OPTIONS]"
             echo ""
-            echo "PREREQUISITES:"
+            echo "PREREQUISITES (for Wyoming pipeline):"
             echo "    Server must be running. Start it with:"
             echo "      bash scripts/run-server.sh start"
             echo ""
             echo "OPTIONS:"
             echo "    -u, --uri URI          Wyoming server URI (default: $DEFAULT_URI)"
             echo "    -f, --file FILE        Test WAV file path (default: $DEFAULT_FILE)"
+            echo "    --piper-demo           Run Piper TTS demo instead of Wyoming pipeline"
+            echo "    --piper-text TEXT      Text to synthesize for Piper demo (default: test message)"
             echo "    -h, --help             Show this help message"
             echo ""
             echo "EXAMPLES:"
             echo "    $0"
             echo "    $0 --file my_test.wav"
             echo "    $0 --uri tcp://192.168.1.100:10700"
+            echo "    $0 --piper-demo"
+            echo "    $0 --piper-demo --piper-text 'Custom message to synthesize'"
             echo ""
             exit 0
             ;;
@@ -104,6 +118,56 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Check if we're in Piper demo mode
+if [[ "$PIPER_DEMO_MODE" == "true" ]]; then
+    header "Piper TTS Demo with Caching"
+    echo "Text: $PIPER_TEXT"
+    echo ""
+
+    # Set up default Piper model paths
+    PIPER_MODEL_DIR="$PROJECT_ROOT/tmp/piper-voices-model"
+    MODEL_NAME="en_US-amy-medium"
+    MODEL_PATH="$PIPER_MODEL_DIR/en/en_US/amy/medium/${MODEL_NAME}.onnx"
+    CONFIG_PATH="$PIPER_MODEL_DIR/en/en_US/amy/medium/${MODEL_NAME}.onnx.json"
+
+    # Check if Piper model exists
+    if [[ ! -f "$MODEL_PATH" ]]; then
+        error "Piper model not found: $MODEL_PATH"
+        echo ""
+        echo "To download Piper models, run the download script or check tmp/piper-voices-model/"
+        exit 1
+    fi
+
+    if [[ ! -f "$CONFIG_PATH" ]]; then
+        error "Piper config not found: $CONFIG_PATH"
+        echo ""
+        echo "To download Piper models, run the download script or check tmp/piper-voices-model/"
+        exit 1
+    fi
+
+    success "Piper model found: $MODEL_NAME"
+    echo ""
+
+    # Run Piper demo
+    header "Running Piper TTS Demo"
+    log "Synthesizing text with caching..."
+    echo ""
+
+    if python "$SCRIPT_DIR/piper_demo.py" "$PIPER_TEXT" \
+        --model-path "$MODEL_PATH" \
+        --config-path "$CONFIG_PATH"; then
+        success "Piper TTS demo completed successfully"
+    else
+        error "Piper TTS demo failed"
+        exit 1
+    fi
+
+    echo ""
+    success "Piper demo script finished successfully"
+    exit 0
+fi
+
+# Wyoming pipeline mode (original functionality)
 # Validate test file exists
 if [[ ! -f "$TEST_FILE" ]]; then
     error "Test file does not exist: $TEST_FILE"

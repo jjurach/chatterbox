@@ -19,6 +19,17 @@ class STTTool(BaseTool):
 
     stt_service: Optional[WhisperSTTService] = None
 
+    def __init__(self, *args, **kwargs):
+        """Initialization method."""
+        kwargs['name'] = "transcribe_audio"
+        kwargs['description'] = (
+            "Transcribe audio file to text using Whisper. "
+            "Input: path to audio file (WAV, MP3, FLAC). "
+            "Output: transcribed text and confidence score."
+        )
+        kwargs['func'] = self._run
+        super().__init__(*args, **kwargs)
+
     def _initialize_service(self) -> None:
         """Initialize the STT service if not already done."""
         if self.stt_service is None:

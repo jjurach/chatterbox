@@ -26,8 +26,16 @@ def get_available_tools() -> List[Tool]:
             func=get_time,
             description="Get the current date and time. Use this when the user asks for the time, date, or current moment.",
         ),
-        STTTool(),
-        TTSTool(),
+        STTTool(
+            name="transcribe_audio",
+            description="Transcribe audio file to text using Whisper. Input: path to audio file (WAV, MP3, FLAC). Output: transcribed text and confidence score.",
+            return_direct=False
+        ),
+        TTSTool(
+            name="synthesize_speech",
+            description="Synthesize text to speech using Piper TTS. Input: text to synthesize. Output: confirmation that speech was synthesized.",
+            return_direct=False
+        ),
     ]
 
     return tools
