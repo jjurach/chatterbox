@@ -100,24 +100,17 @@ async def main(debug: bool = False) -> None:
     # Set up graceful shutdown
     shutdown_event = asyncio.Event()
     tasks = []
+    loop = asyncio.get_running_loop()
 
-    def signal_handler(sig: int, frame: Any) -> None:
-        """Handle shutdown signals gracefully.
-
-        Args:
-            sig: Signal number
-            frame: Stack frame (unused)
-        """
-        logger.info(f"Received signal {sig}, initiating graceful shutdown...")
+    def signal_handler() -> None:
+        """Handle shutdown signals gracefully."""
+        logger.info("Received shutdown signal, initiating graceful shutdown...")
         shutdown_event.set()
-        # Cancel all tasks to interrupt blocking operations
-        for task in tasks:
-            if not task.done():
-                task.cancel()
 
     # Register signal handlers for common shutdown signals
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    # Use loop.add_signal_handler() for proper asyncio integration
+    loop.add_signal_handler(signal.SIGINT, signal_handler)
+    loop.add_signal_handler(signal.SIGTERM, signal_handler)
 
     try:
         # Wyoming server
@@ -138,17 +131,31 @@ async def main(debug: bool = False) -> None:
 
         # Wait for shutdown event
         await shutdown_event.wait()
+        logger.info("Shutdown event received, cancelling all tasks...")
 
-        # Graceful shutdown
-        logger.info("Shutting down servers...")
+        # Graceful shutdown - cancel all tasks
         for task in tasks:
-            task.cancel()
+            if not task.done():
+                logger.info(f"Cancelling task: {task.get_name()}")
+                task.cancel()
 
+        # Wait for all tasks to complete (with timeout)
         try:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        except asyncio.CancelledError:
-            logger.info("Server shutdown complete")
+            await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=5.0
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Server shutdown timeout - forcing termination")
+            # Force cancel any remaining tasks
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
 
+        logger.info("Server shutdown complete")
+
+    except asyncio.CancelledError:
+        logger.info("Server shutdown complete")
     except Exception as e:
         logger.error(f"Server error: {e}", exc_info=True)
         raise

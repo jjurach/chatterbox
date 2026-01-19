@@ -82,18 +82,27 @@ is_port_available() {
     local port=$1
     # Try ss first (more modern and reliable)
     if command -v ss &> /dev/null; then
-        ! ss -tlnp 2>/dev/null | grep -q ":$port "
-        return $?
+        if ss -tlnp 2>/dev/null | grep -q ":$port "; then
+            return 1  # Port is in use
+        else
+            return 0  # Port is available
+        fi
     fi
     # Fallback to lsof if ss not available
     if command -v lsof &> /dev/null; then
-        ! lsof -i ":$port" >/dev/null 2>&1
-        return $?
+        if lsof -i ":$port" >/dev/null 2>&1; then
+            return 1  # Port is in use
+        else
+            return 0  # Port is available
+        fi
     fi
     # Fallback to netstat if neither ss nor lsof available
     if command -v netstat &> /dev/null; then
-        ! netstat -tln 2>/dev/null | grep -q ":$port "
-        return $?
+        if netstat -tln 2>/dev/null | grep -q ":$port "; then
+            return 1  # Port is in use
+        else
+            return 0  # Port is available
+        fi
     fi
     # If no tools available, assume port is available (best effort)
     return 0
@@ -162,7 +171,8 @@ cmd_start() {
     log "All output will be logged to: $LOG_FILE"
 
     # Start server with output redirection
-    nohup bash -c "exec $SERVER_CMD" >> "$LOG_FILE" 2>&1 &
+    # Use env to set PYTHONPATH properly for background process
+    nohup env PYTHONPATH="$PROJECT_ROOT" "$PYTHON_BIN" -m src.main >> "$LOG_FILE" 2>&1 &
     local pid=$!
 
     # Initial wait for process startup
@@ -222,7 +232,12 @@ cmd_stop() {
         return 0
     fi
 
-    local pid=$(cat "$PID_FILE")
+    local pid=$(cat "$PID_FILE" 2>/dev/null)
+    if [[ -z "$pid" ]]; then
+        error "Failed to read PID from $PID_FILE"
+        return 1
+    fi
+
     local port=$(get_server_port)
 
     log "Sending SIGTERM to process $pid..."
@@ -234,8 +249,8 @@ cmd_stop() {
     local count=0
     while kill -0 "$pid" 2>/dev/null && [[ $count -lt 30 ]]; do
         sleep 1
-        ((count++))
-    done
+        ((count++)) || true
+    done || true
 
     # Force kill if still running
     if kill -0 "$pid" 2>/dev/null; then
