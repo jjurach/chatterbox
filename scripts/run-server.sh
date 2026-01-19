@@ -162,7 +162,7 @@ cmd_start() {
     log "All output will be logged to: $LOG_FILE"
 
     # Start server with output redirection
-    nohup bash -c "$SERVER_CMD" >> "$LOG_FILE" 2>&1 &
+    nohup bash -c "exec $SERVER_CMD" >> "$LOG_FILE" 2>&1 &
     local pid=$!
 
     # Initial wait for process startup
