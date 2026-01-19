@@ -211,6 +211,27 @@ The event type detection logic is broken:
 
 ---
 
+## Additional Implementation Steps
+
+### Phase X: Claude Command Configuration Standardization
+
+**Step X.1: Remove hardcoded model specifications**
+- Identify all scripts and commands that invoke `claude` with `--model` parameter
+- Remove specific model names (e.g., `claude-3-5-sonnet-20241022`) from command invocations
+- Allow claude CLI to use its default model selection
+
+**Step X.2: Update documentation and examples**
+- Update any documentation that shows claude command usage with model specifications
+- Ensure examples demonstrate default model usage rather than hardcoded models
+- Add notes about letting claude choose appropriate models automatically
+
+**Step X.3: Test default model behavior**
+- Verify that `claude` commands work without `--model` parameter
+- Confirm that default model selection provides adequate performance
+- Document the default model behavior for future reference
+
+---
+
 ## Success Criteria
 
 ### Restart Functionality (Part 1)
@@ -249,6 +270,14 @@ The event type detection logic is broken:
    - ✅ Proper Wyoming event format (type="transcript", data with text)
    - ✅ No data corruption or truncation
    - ✅ Works with longer transcriptions (>100 characters)
+
+### Claude Command Configuration (Part 3)
+
+7. **Claude commands use default model selection**
+   - ✅ No hardcoded model names in claude command invocations
+   - ✅ Commands work without `--model` parameter
+   - ✅ Default model provides expected functionality
+   - ✅ Documentation reflects default model usage
 
 ---
 
@@ -397,4 +426,3 @@ All tools are standard on Linux. Script should gracefully handle missing tools.
 - [x] No manual `kill -9` needed during development workflow
 - [x] Diagnostic output helps troubleshoot failures
 - [x] Works reliably across multiple consecutive restarts
-

@@ -77,6 +77,34 @@ is_running() {
     return 1  # Not running
 }
 
+# Check if a port is available (not in use)
+is_port_available() {
+    local port=$1
+    # Try ss first (more modern and reliable)
+    if command -v ss &> /dev/null; then
+        ! ss -tlnp 2>/dev/null | grep -q ":$port "
+        return $?
+    fi
+    # Fallback to lsof if ss not available
+    if command -v lsof &> /dev/null; then
+        ! lsof -i ":$port" >/dev/null 2>&1
+        return $?
+    fi
+    # Fallback to netstat if neither ss nor lsof available
+    if command -v netstat &> /dev/null; then
+        ! netstat -tln 2>/dev/null | grep -q ":$port "
+        return $?
+    fi
+    # If no tools available, assume port is available (best effort)
+    return 0
+}
+
+# Get the port from the server configuration
+get_server_port() {
+    # Default Wyoming port is 10700
+    echo 10700
+}
+
 # Get process info
 get_process_info() {
     if [[ -f "$PID_FILE" ]]; then
@@ -127,6 +155,8 @@ cmd_start() {
         exit 1
     fi
 
+    local port=$(get_server_port)
+
     # Start the server in background
     log "Launching server in background..."
     log "All output will be logged to: $LOG_FILE"
@@ -135,28 +165,52 @@ cmd_start() {
     nohup bash -c "$SERVER_CMD" >> "$LOG_FILE" 2>&1 &
     local pid=$!
 
-    # Wait a moment for server to start
-    sleep 2
+    # Initial wait for process startup
+    sleep 3
 
     # Check if process is still running
-    if kill -0 "$pid" 2>/dev/null; then
-        # Save PID
-        echo $pid > "$PID_FILE"
-        success "Server started successfully"
-        echo "PID: $pid"
-        echo "Log file: $LOG_FILE"
-        echo ""
-        echo "To monitor startup logs:"
-        echo "  tail -f $LOG_FILE"
-        echo ""
-        echo "To check server status:"
-        echo "  $0 status"
-    else
-        error "Server failed to start"
+    if ! kill -0 "$pid" 2>/dev/null; then
+        error "Server failed to start (process exited immediately)"
         echo "Check the log file for errors:"
         echo "  tail -n 50 $LOG_FILE"
         exit 1
     fi
+
+    # Verify server is actually listening on port (port should be IN USE)
+    local port_wait=0
+    local port_max_wait=10
+    while is_port_available "$port" 2>/dev/null && [[ $port_wait -lt $port_max_wait ]]; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            error "Server process died before binding to port"
+            echo "Check the log file for errors:"
+            echo "  tail -n 50 $LOG_FILE"
+            exit 1
+        fi
+        log "Waiting for server to bind to port $port... ($port_wait/$port_max_wait)"
+        sleep 1
+        ((port_wait++))
+    done
+
+    # Final check
+    if ! kill -0 "$pid" 2>/dev/null; then
+        error "Server process died"
+        echo "Check the log file for errors:"
+        echo "  tail -n 50 $LOG_FILE"
+        exit 1
+    fi
+
+    # Save PID
+    echo $pid > "$PID_FILE"
+    success "Server started successfully"
+    echo "PID: $pid"
+    echo "Port: $port"
+    echo "Log file: $LOG_FILE"
+    echo ""
+    echo "To monitor startup logs:"
+    echo "  tail -f $LOG_FILE"
+    echo ""
+    echo "To check server status:"
+    echo "  $0 status"
 }
 
 # Stop command
@@ -169,6 +223,8 @@ cmd_stop() {
     fi
 
     local pid=$(cat "$PID_FILE")
+    local port=$(get_server_port)
+
     log "Sending SIGTERM to process $pid..."
 
     # Try graceful shutdown first
@@ -185,21 +241,18 @@ cmd_stop() {
     if kill -0 "$pid" 2>/dev/null; then
         log "Server didn't respond to SIGTERM, sending SIGKILL..."
         kill -KILL "$pid" 2>/dev/null || true
-        sleep 2
 
-        # Wait additional time for process to be fully reaped and port released
+        # Wait for process to be fully reaped
         local sigkill_count=0
-        while kill -0 "$pid" 2>/dev/null && [[ $sigkill_count -lt 10 ]]; do
+        while kill -0 "$pid" 2>/dev/null && [[ $sigkill_count -lt 5 ]]; do
             sleep 1
             ((sigkill_count++))
         done
     fi
 
-    # Extra wait to ensure port is released by kernel
-    sleep 2
-
-    # Clean up
+    # Clean up PID file
     rm -f "$PID_FILE"
+
     success "Server stopped"
     echo "Log file remains at: $LOG_FILE"
     echo ""
@@ -210,10 +263,31 @@ cmd_stop() {
 # Restart command
 cmd_restart() {
     log "Restarting server..."
+    local port=$(get_server_port)
+
     cmd_stop
-    # Wait extra time to ensure old process fully released the port
-    log "Waiting for port to be released..."
-    sleep 5
+
+    # Verify port is actually free before attempting to start
+    local verify_count=0
+    while ! is_port_available "$port" && [[ $verify_count -lt 20 ]]; do
+        log "Verifying port $port is released... ($verify_count/20)"
+        sleep 1
+        ((verify_count++))
+    done
+
+    if ! is_port_available "$port"; then
+        warning "Port $port still appears in use after stop"
+        log "Waiting additional time for socket cleanup..."
+        sleep 5
+
+        if ! is_port_available "$port"; then
+            error "Port $port could not be released. Restart failed."
+            exit 1
+        fi
+    fi
+
+    # Start the server
+    log "Starting server..."
     cmd_start
 }
 

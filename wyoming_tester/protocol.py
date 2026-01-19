@@ -169,12 +169,49 @@ class WyomingClient:
                                 payload_bytes += chunk
                             payload = payload_bytes
 
-                        # Create Event
-                        event = Event.from_dict(event_dict)
-                        if payload:
-                            event = Event(type=event.type, data=event.data, payload=payload)
+                        # Create Event and reconstruct proper Wyoming event type
+                        event_type = event_dict.get('type')
+                        event_data = event_dict.get('data', {})
 
-                        logger.debug(f"Received event: {event.type}")
+                        # Reconstruct proper Wyoming event types based on event.type
+                        if event_type == 'transcript':
+                            # Reconstruct Transcript event
+                            event = Transcript(
+                                text=event_data.get('text', ''),
+                                language=event_data.get('language')
+                            )
+                        elif event_type == 'synthesize':
+                            # Reconstruct Synthesize event
+                            event = Synthesize(
+                                text=event_data.get('text', ''),
+                                voice=event_data.get('voice'),
+                                language=event_data.get('language')
+                            )
+                        elif event_type == 'audio-start':
+                            # Reconstruct AudioStart event
+                            event = AudioStart(
+                                rate=event_data.get('rate', 16000),
+                                width=event_data.get('width', 2),
+                                channels=event_data.get('channels', 1)
+                            )
+                        elif event_type == 'audio-chunk':
+                            # Reconstruct AudioChunk event with payload
+                            event = AudioChunk(
+                                rate=event_data.get('rate', 16000),
+                                width=event_data.get('width', 2),
+                                channels=event_data.get('channels', 1),
+                                audio=payload if payload else b''
+                            )
+                        elif event_type == 'audio-stop':
+                            # Reconstruct AudioStop event
+                            event = AudioStop()
+                        else:
+                            # Fallback to generic Event for unknown types
+                            event = Event.from_dict(event_dict)
+                            if payload:
+                                event = Event(type=event.type, data=event.data, payload=payload)
+
+                        logger.debug(f"Received event: {event_type}")
                         return event
                     except json.JSONDecodeError as e:
                         logger.warning(f"Failed to parse Wyoming event JSON: {e}")
