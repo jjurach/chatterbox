@@ -76,12 +76,18 @@ class WyomingClient:
             raise ConnectionError("Not connected")
 
         try:
+            import json
+
             # Get the actual Event object
             actual_event = event.event()
-            event_bytes = actual_event.to_dict()
+            event_dict = actual_event.to_dict()
+
+            # Add payload length if present (Wyoming protocol requirement)
+            if actual_event.payload:
+                event_dict['payload_length'] = len(actual_event.payload)
+
             # Serialize as JSON line (Wyoming protocol format)
-            import json
-            json_line = json.dumps(event_bytes, ensure_ascii=False)
+            json_line = json.dumps(event_dict, ensure_ascii=False)
             self.socket.sendall((json_line + '\n').encode('utf-8'))
 
             # Send payload if present
@@ -124,6 +130,8 @@ class WyomingClient:
         self.socket.settimeout(timeout)
 
         try:
+            import json
+
             # Read line by line until we get a complete event
             buffer = b""
             while True:
@@ -143,9 +151,32 @@ class WyomingClient:
 
                     # Parse Wyoming event
                     try:
-                        event = Event.from_bytes(line)
-                        logger.debug(f"Received event: {type(event).__name__}")
+                        event_dict = json.loads(line.decode('utf-8'))
+
+                        # Check for payload
+                        payload = None
+                        payload_length = event_dict.get('payload_length')
+                        if payload_length and payload_length > 0:
+                            # Read payload bytes
+                            payload_bytes = b""
+                            while len(payload_bytes) < payload_length:
+                                remaining = payload_length - len(payload_bytes)
+                                chunk = self.socket.recv(min(remaining, 4096))
+                                if not chunk:
+                                    raise ConnectionError("Connection closed while reading payload")
+                                payload_bytes += chunk
+                            payload = payload_bytes
+
+                        # Create Event
+                        event = Event.from_dict(event_dict)
+                        if payload:
+                            event = Event(type=event.type, data=event.data, payload=payload)
+
+                        logger.debug(f"Received event: {event.type}")
                         return event
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Failed to parse Wyoming event JSON: {e}")
+                        continue
                     except Exception as e:
                         logger.warning(f"Failed to parse Wyoming event: {e}")
                         continue

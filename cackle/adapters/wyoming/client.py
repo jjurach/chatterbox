@@ -17,7 +17,7 @@ import sys
 from typing import Optional
 
 from wyoming.asr import Transcript
-from wyoming.event import Event
+from wyoming.event import Event, async_read_event, async_write_event
 from wyoming.tts import Synthesize
 
 logger = logging.getLogger(__name__)
@@ -33,10 +33,8 @@ async def send_event(
         writer: StreamWriter for the connection
         event: The event to send
     """
-    # Serialize the event using Wyoming's protocol
-    event_bytes = event.to_bytes()
-    writer.write(event_bytes)
-    await writer.drain()
+    # Use Wyoming's built-in serialization
+    await async_write_event(event, writer)
 
 
 async def read_event(reader: asyncio.StreamReader) -> Optional[Event]:
@@ -49,13 +47,10 @@ async def read_event(reader: asyncio.StreamReader) -> Optional[Event]:
         The received event, or None if connection closed
     """
     try:
-        # Read the event type line (ending with newline)
-        line = await asyncio.wait_for(reader.readuntil(b"\n"), timeout=30.0)
-        if not line:
-            return None
-
-        # Parse the event from the line
-        event = Event.from_bytes(line)
+        # Use Wyoming's built-in deserialization with timeout
+        event = await asyncio.wait_for(
+            async_read_event(reader), timeout=30.0
+        )
         return event
 
     except asyncio.TimeoutError:
@@ -89,8 +84,10 @@ async def test_backend(
         try:
             # Send transcript event
             logger.info(f"Sending transcript: {text}")
-            transcript_event = Transcript(text=text)
-            await send_event(reader, writer, transcript_event)
+            # Create Transcript and convert to Event using the event() method
+            transcript = Transcript(text=text)
+            event = transcript.event()
+            await send_event(reader, writer, event)
 
             # Wait for response
             logger.info("Waiting for response...")
@@ -100,12 +97,14 @@ async def test_backend(
                     break
 
                 # Check if it's a Synthesize event (the response)
-                if isinstance(event, Synthesize):
-                    print(event.text)
-                    logger.info(f"Received response: {event.text}")
+                if event and event.type == "synthesize":
+                    # Parse the event data
+                    if event.data and "text" in event.data:
+                        print(event.data["text"])
+                        logger.info(f"Received response: {event.data['text']}")
                     break
                 else:
-                    logger.debug(f"Received event: {type(event).__name__}")
+                    logger.debug(f"Received event: {event.type if event else 'None'}")
 
         finally:
             writer.close()

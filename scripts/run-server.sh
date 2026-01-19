@@ -185,8 +185,18 @@ cmd_stop() {
     if kill -0 "$pid" 2>/dev/null; then
         log "Server didn't respond to SIGTERM, sending SIGKILL..."
         kill -KILL "$pid" 2>/dev/null || true
-        sleep 1
+        sleep 2
+
+        # Wait additional time for process to be fully reaped and port released
+        local sigkill_count=0
+        while kill -0 "$pid" 2>/dev/null && [[ $sigkill_count -lt 10 ]]; do
+            sleep 1
+            ((sigkill_count++))
+        done
     fi
+
+    # Extra wait to ensure port is released by kernel
+    sleep 2
 
     # Clean up
     rm -f "$PID_FILE"
@@ -201,7 +211,9 @@ cmd_stop() {
 cmd_restart() {
     log "Restarting server..."
     cmd_stop
-    sleep 2
+    # Wait extra time to ensure old process fully released the port
+    log "Waiting for port to be released..."
+    sleep 5
     cmd_start
 }
 

@@ -154,3 +154,4 @@ Thumbs.db
 tmp/
 *.out
 .aider*
+*.bak

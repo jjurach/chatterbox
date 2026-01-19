@@ -116,40 +116,76 @@ class VoiceAssistantServer(AsyncEventHandler):
         """
         timestamp = datetime.now().isoformat()
         event_type = type(event).__name__
+        event_attr_type = getattr(event, 'type', 'N/A')
 
-        # Audio stream events
-        if isinstance(event, AudioStart):
+        # Debug: Log detailed event information
+        logger.debug(f"handle_event: type={event_type}, event.type={event_attr_type}")
+        if self.debug:
+            logger.info(f"[{timestamp}] [EVENT] type={event_type}, event.type={event_attr_type}, event.data={getattr(event, 'data', 'N/A')}")
+
+        # Handle both specific event types (AudioStart, AudioChunk, etc.) and generic Event objects with type attributes
+        # Wyoming library sometimes deserializes as generic Event objects
+
+        # Audio stream events - handle both specific types and generic Events
+        if isinstance(event, AudioStart) or (hasattr(event, 'type') and event.type == "audio-start"):
             logger.debug("Audio stream started")
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] AudioStart event received")
             self.audio_buffer.clear()
             return True
 
-        if isinstance(event, AudioChunk):
-            logger.debug(f"Received audio chunk: {len(event.audio)} bytes")
-            if self.debug:
-                logger.debug(
-                    f"[{timestamp}] [WYOMING] AudioChunk: {len(event.audio)} bytes"
-                )
-            # Buffer audio for STT processing
-            self.audio_buffer.extend(event.audio)
+        if isinstance(event, AudioChunk) or (hasattr(event, 'type') and event.type == "audio-chunk"):
+            # Get audio bytes from either AudioChunk.audio or event.payload
+            audio_bytes = None
+            if isinstance(event, AudioChunk):
+                audio_bytes = event.audio
+            elif hasattr(event, 'payload') and event.payload:
+                audio_bytes = event.payload
+
+            if audio_bytes:
+                logger.info(f"Buffering audio chunk: {len(audio_bytes)} bytes (total: {len(self.audio_buffer) + len(audio_bytes)} bytes)")
+                if self.debug:
+                    logger.debug(
+                        f"[{timestamp}] [WYOMING] AudioChunk: {len(audio_bytes)} bytes"
+                    )
+                # Buffer audio for STT processing
+                self.audio_buffer.extend(audio_bytes)
+            else:
+                logger.debug(f"Audio chunk received but no payload (payload={hasattr(event, 'payload')}, data={getattr(event, 'data', None)})")
             return True
 
-        if isinstance(event, AudioStop):
-            logger.debug("Audio stream stopped")
+        if isinstance(event, AudioStop) or (hasattr(event, 'type') and event.type == "audio-stop"):
+            logger.info(f"Audio stream stopped. Total audio buffered: {len(self.audio_buffer)} bytes")
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] AudioStop event received")
 
             # Auto-transcribe in satellite mode (full)
             if self.mode == "full":
-                logger.debug("Auto-transcribing audio in satellite mode")
+                logger.info(f"Starting auto-transcription in full mode ({len(self.audio_buffer)} bytes)")
                 if self.debug:
                     logger.info(f"[{timestamp}] [WYOMING] Auto-transcribe triggered")
 
                 try:
                     response_event = await self._handle_transcribe(Transcribe())
                     if response_event:
-                        await self.write_event(response_event)
+                        logger.info(f"Transcription result: {response_event.text if hasattr(response_event, 'text') else 'N/A'}")
+                        # Convert Transcript wrapper to Event for transmission
+                        event_to_send = response_event.event()
+                        await self.write_event(event_to_send)
+                except Exception as e:
+                    logger.error(f"Error in auto-transcription: {e}", exc_info=True)
+                finally:
+                    self.audio_buffer.clear()
+            elif self.mode == "stt_only":
+                # In stt_only mode, auto-transcribe when audio stops
+                logger.info(f"Starting auto-transcription in stt_only mode ({len(self.audio_buffer)} bytes)")
+                try:
+                    response_event = await self._handle_transcribe(Transcribe())
+                    if response_event:
+                        logger.info(f"Transcription result: {response_event.text if hasattr(response_event, 'text') else 'N/A'}")
+                        # Convert Transcript wrapper to Event for transmission
+                        event_to_send = response_event.event()
+                        await self.write_event(event_to_send)
                 except Exception as e:
                     logger.error(f"Error in auto-transcription: {e}", exc_info=True)
                 finally:
@@ -158,13 +194,15 @@ class VoiceAssistantServer(AsyncEventHandler):
             return True
 
         # Speech recognition events
-        if isinstance(event, Transcribe):
+        if isinstance(event, Transcribe) or (hasattr(event, 'type') and event.type == "transcribe"):
             logger.debug("Transcription requested")
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] Transcribe event received")
-            response_event = await self._handle_transcribe(event)
+            response_event = await self._handle_transcribe(Transcribe())
             if response_event:
-                await self.write_event(response_event)
+                # Convert Transcript wrapper to Event for transmission
+                event_to_send = response_event.event()
+                await self.write_event(event_to_send)
             return True
 
         if isinstance(event, Transcript):
@@ -173,10 +211,21 @@ class VoiceAssistantServer(AsyncEventHandler):
                 logger.info(
                     f"[{timestamp}] [WYOMING] Transcript received: {event.text}"
                 )
+
+            # In stt_only mode, just log the transcript (no agent to process it)
+            if self.mode == "stt_only":
+                logger.debug("Transcript received in stt_only mode (no response generated)")
+                return True
+
             response_event = await self._process_transcript(event)
             if response_event:
-                await self.write_event(response_event)
+                # Convert Synthesize wrapper to Event for transmission
+                event_to_send = response_event.event()
+                await self.write_event(event_to_send)
             return True
+
+        # Handle unknown event types
+        logger.debug(f"Unhandled event type: {event_type} (event.type={event_attr_type})")
 
         logger.debug(f"Unhandled event type: {event_type}")
         if self.debug:
@@ -199,20 +248,21 @@ class VoiceAssistantServer(AsyncEventHandler):
         try:
             if not self.audio_buffer:
                 logger.warning("No audio data to transcribe")
-                return Transcript(text="", confidence=0.0)
+                return Transcript(text="")
 
+            logger.info(f"Starting Whisper transcription on {len(self.audio_buffer)} bytes of audio")
             # Transcribe the buffered audio
             result = await self.stt_service.transcribe(bytes(self.audio_buffer))
-            self.audio_buffer.clear()
+
+            logger.info(f"Whisper transcription complete: '{result.get('text', '')}'")
 
             return Transcript(
                 text=result["text"],
-                confidence=result.get("confidence", 0.0),
             )
 
         except Exception as e:
             logger.error(f"Error transcribing audio: {e}", exc_info=True)
-            return Transcript(text="", confidence=0.0)
+            return Transcript(text="")
 
     async def _process_transcript(self, transcript: Transcript) -> Optional[Event]:
         """Process a transcript event and generate a response.
@@ -445,7 +495,19 @@ class WyomingServer:
         uri = f"tcp://{self.host}:{self.port}"
         logger.info(f"Starting Wyoming server on {uri} (mode: {self.mode})")
 
-        server = AsyncServer.from_uri(uri)
+        try:
+            server = AsyncServer.from_uri(uri)
+            logger.info(f"Wyoming AsyncServer created successfully from URI: {uri}")
+        except Exception as e:
+            logger.error(f"Failed to create Wyoming server from URI {uri}: {e}", exc_info=True)
+            raise
 
         # Start the server with handler factory
-        await server.start(self.handler_factory)
+        # Use run() instead of start() to block and serve forever
+        try:
+            logger.info(f"Calling AsyncServer.run() with handler factory (will block)...")
+            await server.run(self.handler_factory)
+            logger.info("AsyncServer.run() completed (server shutting down)")
+        except Exception as e:
+            logger.error(f"Failed to run Wyoming server: {e}", exc_info=True)
+            raise

@@ -1,9 +1,4 @@
-"""
-Configuration management for the Chatterbox3B Wyoming Voice Assistant.
-
-This module provides a Settings class that loads configuration from environment
-variables, allowing easy configuration without code changes.
-"""
+"""Configuration modules for Cackle components."""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -52,3 +47,27 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get the application settings instance."""
     return Settings()
+
+
+# Import batch processing configs
+from cackle.config.batch_processing import (
+    AudioFormatConfig,
+    BatchProcessingConfig,
+    BufferConstraintsConfig,
+    ChunkValidationConfig,
+    ErrorHandlingConfig,
+    LoggingConfig,
+    WhisperConfig,
+)
+
+__all__ = [
+    "Settings",
+    "get_settings",
+    "AudioFormatConfig",
+    "BufferConstraintsConfig",
+    "ChunkValidationConfig",
+    "WhisperConfig",
+    "ErrorHandlingConfig",
+    "LoggingConfig",
+    "BatchProcessingConfig",
+]
