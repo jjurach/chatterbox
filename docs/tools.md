@@ -310,3 +310,6 @@ To contribute a tool:
 3. Document with clear examples
 4. Submit PR with feature branch: `tools/tool-name`
 5. Ensure all tests pass: `pytest tests/core/test_tools.py`
+
+---
+Last Updated: 2026-02-01

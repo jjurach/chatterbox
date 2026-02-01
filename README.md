@@ -552,6 +552,19 @@ sudo usermod -a -G dialout $USER
 - [LangChain Documentation](https://python.langchain.com/)
 - [ESP32-S3-BOX-3B Hardware Reference](https://github.com/espressif/esp-box)
 
+## Documentation
+
+### For AI Agents
+- **[AGENTS.md](AGENTS.md)** - Mandatory workflow for AI agents
+- **[Definition of Done](docs/definition-of-done.md)** - Quality standards
+- **[Workflows](docs/workflows.md)** - Development workflows
+
+### For Developers
+- **[Documentation Index](docs/README.md)** - Complete documentation navigation hub
+- **[Architecture](docs/architecture.md)** - System architecture
+- **[Implementation Reference](docs/implementation-reference.md)** - Code patterns
+- **[Quickstart](docs/quickstart.md)** - Getting started guide
+
 ## License
 
 [Specify your license here]
@@ -559,3 +572,5 @@ sudo usermod -a -G dialout $USER
 ## Contributing
 
 [Add contributing guidelines here]
+---
+Last Updated: 2026-02-01

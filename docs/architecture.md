@@ -218,3 +218,6 @@ The server can operate in different modes optimized for different use cases:
 - Persistent conversation storage
 - Vision and other multimodal services
 - Performance optimization (batching, caching)
+
+---
+Last Updated: 2026-02-01

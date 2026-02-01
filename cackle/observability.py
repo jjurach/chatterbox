@@ -115,14 +115,13 @@ class ObservabilityHandler(BaseCallbackHandler):
             )
 
             # Log full usage metrics as debug info
-            logger.debug(
-                f"[LLM METRICS] {json.dumps({
-                    'prompt_tokens': prompt_tokens,
-                    'completion_tokens': completion_tokens,
-                    'total_tokens': total_tokens,
-                    'estimated_cost': estimated_cost,
-                })}"
-            )
+            metrics_json = json.dumps({
+                'prompt_tokens': prompt_tokens,
+                'completion_tokens': completion_tokens,
+                'total_tokens': total_tokens,
+                'estimated_cost': estimated_cost,
+            })
+            logger.debug(f"[LLM METRICS] {metrics_json}")
 
         except Exception as e:
             logger.error(f"Error in observability handler: {e}", exc_info=True)

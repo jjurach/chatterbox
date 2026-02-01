@@ -463,3 +463,6 @@ await tts.synthesize_to_file("Hello world", "/tmp/speech.wav")
 - [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 - [Piper TTS](https://github.com/rhasspy/piper)
 - [Wyoming Protocol](https://github.com/rhasspy/wyoming)
+
+---
+Last Updated: 2026-02-01

@@ -373,3 +373,6 @@ except Exception as e:
 - **OpenAI Whisper:** https://github.com/openai/whisper
 - **PCM Audio Format:** https://en.wikipedia.org/wiki/Pulse-code_modulation
 - **Audio Processing:** https://numpy.org/doc/stable/reference/generated/numpy.frombuffer.html
+
+---
+Last Updated: 2026-02-01

@@ -282,3 +282,5 @@ See [STT/TTS Services Guide](stt_tts_services.md) for complete documentation.
 ## Getting Help
 
 For issues and feature requests, see the project repository.
+---
+Last Updated: 2026-02-01

@@ -260,3 +260,6 @@ To contribute a new adapter:
 - Verify protocol format is correct
 - Check network connectivity
 - Enable debug logging in adapter
+
+---
+Last Updated: 2026-02-01

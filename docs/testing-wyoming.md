@@ -344,3 +344,5 @@ chmod +x test_wyoming.sh
 - **TTS Responses:** `response.wav` (or custom filename with `--output`)
 
 This setup provides a robust testing environment for developing and debugging Wyoming protocol integrations with reliable background process management and comprehensive logging.
+---
+Last Updated: 2026-02-01
