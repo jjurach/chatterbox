@@ -156,3 +156,6 @@ tmp/
 .aider*
 *.bak
 session_*.md
+
+# bv (beads viewer) local config and caches
+.bv/
