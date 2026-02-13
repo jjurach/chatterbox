@@ -212,7 +212,7 @@ class OCRValidator:
             # Extract letters with confidence > threshold
             valid_detections = [
                 (text.upper(), confidence)
-                for (_, _, text), confidence in results
+                for bbox, text, confidence in results
                 if confidence > self.OCR_CONFIDENCE_THRESHOLD
             ]
 
