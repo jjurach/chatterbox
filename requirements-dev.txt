@@ -15,3 +15,4 @@ mypy==1.8.0
 # Development utilities
 ipython==8.20.0
 pre-commit==4.0.1
+cv2
