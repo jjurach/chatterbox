@@ -507,9 +507,11 @@ color:
     hex: "FFFF00"  # Yellow - W
   - id: state_error_bg
     hex: "008000"  # Green - P
-  # Text color for letters (white for good contrast)
-  - id: state_letter_text
-    hex: "FFFFFF"
+  # Text colors optimized for OCR contrast
+  - id: text_light_bg
+    hex: "000000"  # Black for light backgrounds (Orange, Yellow)
+  - id: text_dark_bg
+    hex: "FFFFFF"  # White for dark backgrounds (Purple, Blue, Red, Green)
 
 spi:
   - id: spi_bus
@@ -535,24 +537,24 @@ display:
       - id: uninitialized_page
         lambda: |-
           it.fill(id(state_uninitialized_bg));
-          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "N");
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(text_light_bg), TextAlign::CENTER, "N");
       - id: idle_page
         lambda: |-
           it.fill(id(state_idle_bg));
-          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "H");
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(text_dark_bg), TextAlign::CENTER, "H");
       - id: listening_page
         lambda: |-
           it.fill(id(state_listening_bg));
-          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "S");
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(text_dark_bg), TextAlign::CENTER, "S");
       - id: thinking_page
         lambda: |-
           it.fill(id(state_thinking_bg));
-          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "A");
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(text_dark_bg), TextAlign::CENTER, "A");
       - id: replying_page
         lambda: |-
           it.fill(id(state_replying_bg));
-          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "W");
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(text_light_bg), TextAlign::CENTER, "W");
       - id: error_page
         lambda: |-
           it.fill(id(state_error_bg));
-          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "P");
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(text_dark_bg), TextAlign::CENTER, "P");
