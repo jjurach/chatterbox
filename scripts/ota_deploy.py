@@ -275,6 +275,18 @@ class OTADeployer:
             except socket.error as e:
                 raise OTADeployError(f"Failed to resolve hostname '{host}': {e}")
 
+    def _check_device_connectivity(self, device_ip: str) -> bool:
+        """Check if device is reachable (ping test)."""
+        try:
+            # Try to establish TCP connection to check if device is alive
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            result = sock.connect_ex((device_ip, 22))  # SSH port as connectivity check
+            sock.close()
+            return result == 0
+        except Exception:
+            return False
+
     def deploy(self, device_host: str) -> bool:
         """
         Deploy firmware to a single device.
@@ -332,9 +344,48 @@ class OTADeployer:
                 )
 
         except requests.exceptions.Timeout:
-            raise OTADeployError("Connection timeout - device not responding")
+            raise OTADeployError(
+                f"Connection timeout - device at {device_ip}:{self.port} not responding\n"
+                f"\nTroubleshooting:\n"
+                f"  1. Verify device is online: ping {device_ip}\n"
+                f"  2. Check device serial logs for errors\n"
+                f"  3. Ensure OTA is enabled in firmware\n"
+                f"  4. Wait 30+ seconds after device boot for OTA service to start\n"
+                f"  5. Try again with --retries 5 for more attempts"
+            )
         except requests.exceptions.ConnectionError as e:
-            raise OTADeployError(f"Connection error: {e}")
+            # Check if device is reachable at all
+            device_reachable = self._check_device_connectivity(device_ip)
+
+            if device_reachable:
+                error_msg = (
+                    f"Device at {device_ip} is reachable, but OTA port {self.port} is not responding\n"
+                    f"\nLikely causes:\n"
+                    f"  • Device is still booting (OTA service hasn't started yet)\n"
+                    f"  • OTA is not enabled in firmware\n"
+                    f"  • Device lost WiFi connection\n"
+                    f"\nTroubleshooting:\n"
+                    f"  1. Wait 30+ seconds after device boots\n"
+                    f"  2. Check device serial logs: esphome logs firmware/voice-assistant.yaml\n"
+                    f"  3. Verify OTA is in voice-assistant.yaml config\n"
+                    f"  4. Power cycle the device and try again\n"
+                    f"  5. Check WiFi connection on device"
+                )
+            else:
+                error_msg = (
+                    f"Cannot reach device at {device_ip}:{self.port}\n"
+                    f"\nPossible issues:\n"
+                    f"  • Device is offline or not connected to WiFi\n"
+                    f"  • Incorrect IP address: {device_ip}\n"
+                    f"  • Wrong network/firewall blocking connection\n"
+                    f"\nTroubleshooting:\n"
+                    f"  1. Check device is powered on and connected to WiFi\n"
+                    f"  2. Verify IP address is correct (check device logs or router)\n"
+                    f"  3. Try ping: ping {device_ip}\n"
+                    f"  4. Restart device and try again"
+                )
+
+            raise OTADeployError(error_msg)
         except requests.exceptions.RequestException as e:
             raise OTADeployError(f"Request failed: {e}")
         except Exception as e:
