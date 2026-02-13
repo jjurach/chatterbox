@@ -24,33 +24,18 @@ The Chatterbox device (Espressif Box 3B) must implement a robust state machine w
 - **Audio Streaming:** Stream PCM data to Home Assistant; send end-of-transmission packet.
 - **OCR Validation:** Scripts to validate the displayed screen letter matches the expected state.
 
-### 2. Epic Structure & Orchestration
-The project is divided into **12 Epics**.
-- **Management:** Use `@beads/bd` for task dependency management.
-- **Parallelism:** Execute unrelated epics (e.g., device firmware vs. backend) in parallel using multiple agents.
-
 #### Epic 1: OTA & Foundation
-- **OTA Cadence:** Establish a reliable Over-The-Air update process.
-- **Deployment Tool:** Create a tool to push selected images to specific devices.
-- **Autonomous Deployment:** Agents must be able to deploy new builds to devices autonomously.
 - **State Machine MVP:** Implement the basic state machine cycling through the 6 screens (N, H, S, A, W, P) to verify the display and OCR logic.
+- **OCR Validator:** Implement ocr-validation tool to read /dev/video0 and to detect the letter on the screen.
+- **Autonomous Deployment:** Agents must be able to deploy new builds to devices autonomously.
+- **Deployment Tool:** Create a tool to push selected images to specific devices.
+- **OTA Cadence:** Establish a reliable Over-The-Air update process.
 
-## Implementation Approach
+# Notes:
 
-### Work Structure
-
-The project is organized into 12 Epics, with dependencies tracked through the task management system:
-
-*   **Epics** - Major project milestones
-*   **Tasks/Beads** - Individual work items
-    *   **Firmware** - ESPHome YAML, C++ logic
-    *   **Infrastructure** - OTA server, Home Assistant integration
-    *   **Tools** - OCR validator, test scripts
-
-### Epic 1: OTA & Foundation
-
-- **OTA Cadence:** Establish a reliable Over-The-Air update process
-- **Deployment Tool:** Create a tool to push selected images to specific devices
-- **Autonomous Deployment:** Enable automated deployment of new builds to devices
-- **State Machine MVP:** Implement the basic state machine cycling through the 6 screens (N, H, S, A, W, P) to verify the display and OCR logic
+- Add a large letter to each of the 6 cycled screens.
+- We will use these letters with OCR to verify that the screen is cycling correctly.
+- Create OCR validator tool based on /dev/video0 and a python, cpu-based ocr library to read that single letter.
+- Agent will use this OCR validator tool in subsequent iterations of this project.
+- Arduino 1.8.19 is installed on the system
 
