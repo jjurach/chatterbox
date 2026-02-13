@@ -35,6 +35,7 @@ import sys
 import time
 import logging
 import shutil
+import os
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -53,6 +54,23 @@ try:
 except ImportError:
     print("Error: requests library not found. Install with: pip install requests")
     sys.exit(1)
+
+
+# Context manager to suppress stderr during video operations
+class SuppressStderr:
+    """Temporarily suppress stderr output."""
+    def __enter__(self):
+        self._original_stderr = os.dup(2)
+        os.close(2)
+        os.open(os.devnull, os.O_RDWR)
+        return self
+
+    def __exit__(self, *args):
+        try:
+            os.dup2(self._original_stderr, 2)
+            os.close(self._original_stderr)
+        except:
+            pass
 
 
 # Configure logging
@@ -177,27 +195,33 @@ class OCRValidator:
         """Open video device for reading frames with retry logic."""
         for attempt in range(retries):
             try:
-                cap = cv2.VideoCapture(self.video_device)
-                if not cap.isOpened():
-                    if attempt < retries - 1:
-                        logger.warning(f"Failed to open video device (attempt {attempt + 1}/{retries}), retrying...")
-                        time.sleep(0.5)
-                        continue
-                    else:
-                        logger.error(f"Failed to open video device after {retries} attempts: {self.video_device}")
-                        return None
+                # Suppress stderr for ioctl warnings from video driver
+                with SuppressStderr():
+                    cap = cv2.VideoCapture(self.video_device)
+                    if not cap.isOpened():
+                        if attempt < retries - 1:
+                            logger.warning(f"Failed to open video device (attempt {attempt + 1}/{retries}), retrying...")
+                            time.sleep(1.0)  # Longer delay for device to settle
+                            continue
+                        else:
+                            logger.error(f"Failed to open video device after {retries} attempts: {self.video_device}")
+                            return None
 
-                # Set resolution
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.IMAGE_WIDTH)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.IMAGE_HEIGHT)
+                    # Set resolution
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.IMAGE_WIDTH)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.IMAGE_HEIGHT)
 
-                # Add warmup frames to let device settle
-                for _ in range(2):
-                    ret, _ = cap.read()
-                    if not ret:
-                        logger.warning("Failed to read warmup frame")
-                        break
-                    time.sleep(0.05)
+                    # Add longer warmup period to let device buffer settle
+                    for i in range(3):
+                        ret, _ = cap.read()
+                        if not ret:
+                            if i == 0:
+                                logger.warning("Failed to read warmup frames, releasing and retrying")
+                                cap.release()
+                                if attempt < retries - 1:
+                                    time.sleep(1.0)
+                                    break
+                        time.sleep(0.1)
 
                 logger.debug(f"✅ Opened video device: {self.video_device}")
                 return cap
@@ -205,7 +229,7 @@ class OCRValidator:
             except Exception as e:
                 if attempt < retries - 1:
                     logger.warning(f"Error opening video device (attempt {attempt + 1}/{retries}): {e}")
-                    time.sleep(0.5)
+                    time.sleep(1.0)
                 else:
                     logger.error(f"Error opening video device after {retries} attempts: {e}")
 
@@ -336,18 +360,20 @@ class OCRValidator:
 
             for i in range(samples):
                 try:
-                    ret, frame = cap.read()
-                    if not ret or frame is None:
-                        logger.debug(f"Failed to read frame {i}")
-                        continue
+                    # Suppress stderr for frame reads to avoid ioctl warnings
+                    with SuppressStderr():
+                        ret, frame = cap.read()
+                        if not ret or frame is None:
+                            logger.debug(f"Failed to read frame {i}")
+                            continue
 
-                    frames_read += 1
-                    letter, confidence = self._extract_letter(frame)
-                    if letter:
-                        detections.append((letter, confidence))
+                        frames_read += 1
+                        letter, confidence = self._extract_letter(frame)
+                        if letter:
+                            detections.append((letter, confidence))
 
-                    # Small delay between frames
-                    time.sleep(0.1)
+                    # Delay between frames to prevent buffer issues
+                    time.sleep(0.2)
 
                 except Exception as e:
                     logger.warning(f"Error processing frame {i}: {e}")
@@ -377,6 +403,7 @@ class OCRValidator:
         finally:
             if cap:
                 cap.release()
+                time.sleep(0.2)  # Give device time to release resources
 
     def validate_state(self, device: str, expected_state: Optional[str] = None) -> ValidationResult:
         """
