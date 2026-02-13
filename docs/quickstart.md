@@ -277,7 +277,7 @@ See [STT/TTS Services Guide](stt_tts_services.md) for complete documentation.
 - Explore [Speech Services Guide](stt_tts_services.md) for STT/TTS details
 - Explore [Adding Tools](tools.md) to extend capabilities
 - Check [Adapter Documentation](adapters.md) for custom protocol support
-- Review [Examples](../examples/) for more use cases
+- Review [Examples](../demos/) for more use cases
 
 ## Getting Help
 
