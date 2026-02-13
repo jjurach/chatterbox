@@ -1,0 +1,7 @@
+# Temporary and log files
+logs/
+*.log
+
+# Inbox processing (work-in-progress)
+inbox/
+inbox-archive/
