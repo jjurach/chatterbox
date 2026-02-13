@@ -91,33 +91,49 @@ interval:
           condition:
             lambda: 'return id(demo_mode_enabled);'
           then:
-            - lambda: |
-                int counter = id(demo_cycle_counter);
-                counter = (counter + 1) % 6;
-                id(demo_cycle_counter) = counter;
-
-                // Demo cycle: N → H → S → A → W → H → (repeat)
-                // uninitialized → idle → listening → thinking → replying → idle
-                switch(counter) {
-                  case 0:
-                    id(voice_assistant_fsm).trigger_input(std::string("boot_successful"));
-                    break;
-                  case 1:
-                    id(voice_assistant_fsm).trigger_input(std::string("wake_word_detected"));
-                    break;
-                  case 2:
-                    id(voice_assistant_fsm).trigger_input(std::string("stt_end"));
-                    break;
-                  case 3:
-                    id(voice_assistant_fsm).trigger_input(std::string("tts_start"));
-                    break;
-                  case 4:
-                    id(voice_assistant_fsm).trigger_input(std::string("tts_end"));
-                    break;
-                  case 5:
-                    id(voice_assistant_fsm).trigger_input(std::string("wake_word_detected"));
-                    break;
-                }
+            - lambda: 'id(demo_cycle_counter) = (id(demo_cycle_counter) + 1) % 6;'
+            - if:
+                condition:
+                  lambda: 'return id(demo_cycle_counter) == 0;'
+                then:
+                  - state_machine.transition:
+                      id: voice_assistant_fsm
+                      input: boot_successful
+            - if:
+                condition:
+                  lambda: 'return id(demo_cycle_counter) == 1;'
+                then:
+                  - state_machine.transition:
+                      id: voice_assistant_fsm
+                      input: wake_word_detected
+            - if:
+                condition:
+                  lambda: 'return id(demo_cycle_counter) == 2;'
+                then:
+                  - state_machine.transition:
+                      id: voice_assistant_fsm
+                      input: stt_end
+            - if:
+                condition:
+                  lambda: 'return id(demo_cycle_counter) == 3;'
+                then:
+                  - state_machine.transition:
+                      id: voice_assistant_fsm
+                      input: tts_start
+            - if:
+                condition:
+                  lambda: 'return id(demo_cycle_counter) == 4;'
+                then:
+                  - state_machine.transition:
+                      id: voice_assistant_fsm
+                      input: tts_end
+            - if:
+                condition:
+                  lambda: 'return id(demo_cycle_counter) == 5;'
+                then:
+                  - state_machine.transition:
+                      id: voice_assistant_fsm
+                      input: wake_word_detected
 
 button:
   - platform: factory_reset
