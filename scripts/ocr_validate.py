@@ -12,6 +12,9 @@ Usage:
     # Run continuous validation loop
     python ocr_validate.py --loop --interval 5
 
+    # Stop after 10 iterations
+    python ocr_validate.py --loop --count 10
+
     # Generate validation report and keep frames
     python ocr_validate.py --loop --duration 60 --report report.json --keep
 
@@ -438,7 +441,7 @@ class OCRValidator:
             return result
 
     def validate_loop(self, device: str, interval: int = 5,
-                     duration: Optional[int] = None) -> List[ValidationResult]:
+                     duration: Optional[int] = None, count: Optional[int] = None) -> List[ValidationResult]:
         """
         Run continuous validation loop.
 
@@ -446,12 +449,15 @@ class OCRValidator:
             device: Device identifier
             interval: Seconds between validations (default: 5)
             duration: Total duration in seconds (None = infinite)
+            count: Maximum number of iterations (None = infinite)
 
         Returns:
             List of validation results
         """
         logger.info(f"Starting validation loop for {device}")
-        logger.info(f"Interval: {interval}s, Duration: {duration}s" if duration else f"Interval: {interval}s, Duration: infinite")
+        duration_str = f"Duration: {duration}s" if duration else "Duration: infinite"
+        count_str = f"Count: {count}" if count else "Count: infinite"
+        logger.info(f"Interval: {interval}s, {duration_str}, {count_str}")
 
         start_time = datetime.now()
         end_time = start_time + timedelta(seconds=duration) if duration else None
@@ -461,6 +467,8 @@ class OCRValidator:
         print(f"🔄 Starting OCR Validation Loop")
         print(f"Device: {device}")
         print(f"Interval: {interval}s")
+        if count:
+            print(f"Iterations: {count}")
         if end_time:
             print(f"Duration: {duration}s")
         if self.keep_frames:
@@ -470,6 +478,11 @@ class OCRValidator:
         try:
             while True:
                 iteration += 1
+
+                # Check if we've exceeded count limit
+                if count and iteration > count:
+                    logger.info(f"Iteration count limit reached ({count}), stopping validation loop")
+                    break
 
                 # Check if we've exceeded duration
                 if end_time and datetime.now() >= end_time:
@@ -656,6 +669,8 @@ def main():
                        help='Run continuous validation loop')
     parser.add_argument('--interval', type=int, default=5,
                        help='Seconds between validations (default: 5)')
+    parser.add_argument('--count', type=int,
+                       help='Stop after this many iterations')
     parser.add_argument('--duration', type=int,
                        help='Total duration in seconds (default: infinite)')
 
@@ -689,7 +704,8 @@ def main():
                 validator.validate_loop(
                     device=args.device,
                     interval=args.interval,
-                    duration=args.duration
+                    duration=args.duration,
+                    count=args.count
                 )
             else:
                 # Single validation
