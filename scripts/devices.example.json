@@ -1,0 +1,13 @@
+[
+  {
+    "host": "esp32-s3-box-1.local",
+    "password": "device_password_1"
+  },
+  {
+    "host": "192.168.1.100",
+    "password": "device_password_2"
+  },
+  {
+    "host": "esp32-s3-box-3.local"
+  }
+]

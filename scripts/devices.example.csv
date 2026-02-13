@@ -1,0 +1,4 @@
+host,password
+esp32-s3-box-1.local,device_password_1
+192.168.1.100,device_password_2
+esp32-s3-box-3.local,
