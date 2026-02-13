@@ -340,6 +340,8 @@ state_machine:
       transitions:
         - from: uninitialized
           to: idle
+        - from: idle
+          to: idle
     - name: wake_word_detected
       transitions:
         - from: idle
