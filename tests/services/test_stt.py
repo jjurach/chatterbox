@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from cackle.services.stt import WhisperSTTService
+from chatterbox.services.stt import WhisperSTTService
 
 
 @pytest.fixture

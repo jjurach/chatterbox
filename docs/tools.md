@@ -1,6 +1,6 @@
 # Tools and Skills System
 
-The Cackle agent can be extended with tools (also called skills) that allow it to perform actions beyond conversation. This document explains the tool system and how to add custom tools.
+The Chatterbox agent can be extended with tools (also called skills) that allow it to perform actions beyond conversation. This document explains the tool system and how to add custom tools.
 
 ## Understanding Tools
 
@@ -13,13 +13,13 @@ Currently available tools:
 #### GetTime
 Gets the current date and time.
 
-**Function:** `cackle.tools.builtin.time_tool.get_time()`
+**Function:** `chatterbox.tools.builtin.time_tool.get_time()`
 
 **Agent Description:** "Get the current date and time. Use this when the user asks for the time, date, or current moment."
 
 **Example:**
 ```python
-from cackle.tools.builtin import get_time
+from chatterbox.tools.builtin import get_time
 print(get_time())  # Output: "2024-01-15 14:30:45"
 ```
 
@@ -34,10 +34,10 @@ Agent Response: "It is currently 2024-01-15 14:30:45."
 
 ### Tool Registry
 
-The tool registry (`cackle/tools/registry.py`) centralizes tool definition:
+The tool registry (`src/chatterbox/tools/registry.py`) centralizes tool definition:
 
 ```python
-from cackle.tools import get_available_tools
+from chatterbox.tools import get_available_tools
 
 tools = get_available_tools()
 # Returns list of LangChain Tool objects
@@ -62,11 +62,11 @@ Tool(
 
 ### Step 1: Create Tool Function
 
-Create a new file in `cackle/tools/builtin/`:
+Create a new file in `src/chatterbox/tools/builtin/`:
 
 ```python
-# cackle/tools/builtin/weather_tool.py
-"""Weather tool for the Cackle agent."""
+# src/chatterbox/tools/builtin/weather_tool.py
+"""Weather tool for the Chatterbox agent."""
 
 
 def get_weather(location: str = "current") -> str:
@@ -85,23 +85,23 @@ def get_weather(location: str = "current") -> str:
 
 ### Step 2: Export from Builtin
 
-Update `cackle/tools/builtin/__init__.py`:
+Update `src/chatterbox/tools/builtin/__init__.py`:
 
 ```python
-"""Built-in tools for the Cackle agent."""
+"""Built-in tools for the Chatterbox agent."""
 
-from cackle.tools.builtin.time_tool import get_time
-from cackle.tools.builtin.weather_tool import get_weather
+from chatterbox.tools.builtin.time_tool import get_time
+from chatterbox.tools.builtin.weather_tool import get_weather
 
 __all__ = ["get_time", "get_weather"]
 ```
 
 ### Step 3: Register the Tool
 
-Update `cackle/tools/registry.py`:
+Update `src/chatterbox/tools/registry.py`:
 
 ```python
-from cackle.tools.builtin.weather_tool import get_weather
+from chatterbox.tools.builtin.weather_tool import get_weather
 
 def get_available_tools() -> List[Tool]:
     """Get the list of available tools for the agent."""
@@ -127,7 +127,7 @@ Create `tests/core/test_weather_tool.py`:
 ```python
 """Tests for the weather tool."""
 
-from cackle.tools.builtin import get_weather
+from chatterbox.tools.builtin import get_weather
 
 
 def test_get_weather():
@@ -140,7 +140,7 @@ def test_get_weather():
 ### Step 5: Test with Agent
 
 ```python
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 
 agent = VoiceAssistantAgent()
 response = await agent.process_input("What's the weather in New York?")

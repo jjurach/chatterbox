@@ -1,15 +1,15 @@
-# Cackle Agent Architecture
+# Chatterbox Agent Architecture
 
 ## Overview
 
-Cackle is a library-first architecture for a conversational AI agent with tool use and memory capabilities. The design separates protocol-agnostic core agent logic from protocol-specific adapters, allowing the agent to be reused across multiple projects and platforms.
+Chatterbox is a library-first architecture for a conversational AI agent with tool use and memory capabilities. The design separates protocol-agnostic core agent logic from protocol-specific adapters, allowing the agent to be reused across multiple projects and platforms.
 
 ## Core Concepts
 
 ### Agent
 The `VoiceAssistantAgent` is the central component that processes user input and generates responses using LangChain and local LLMs (via Ollama). It maintains conversation memory and can utilize tools to extend its capabilities.
 
-**Location:** `cackle/agent.py`
+**Location:** `src/chatterbox/agent.py`
 
 ### STT/TTS Services
 Dedicated services for speech processing:
@@ -18,67 +18,71 @@ Dedicated services for speech processing:
 
 These services can be used independently or integrated with the Wyoming protocol and REST API.
 
-**Location:** `cackle/services/`
+**Location:** `src/chatterbox/services/`
 
 ### Tools
 Tools are functions that the agent can invoke to perform actions like getting the current time, transcribing audio, or synthesizing speech. The tool system is centralized through a registry, making it easy to add new tools.
 
 **Locations:**
-- `cackle/tools/registry.py` - Tool registry
-- `cackle/tools/builtin/` - Built-in tools (time, STT, TTS)
+- `src/chatterbox/tools/registry.py` - Tool registry
+- `src/chatterbox/tools/builtin/` - Built-in tools (time, STT, TTS)
 
 ### Configuration
 Settings are managed through environment variables and the `Settings` class, providing centralized configuration for the agent, adapters, and services.
 
-**Location:** `cackle/config.py`
+**Location:** `src/chatterbox/config.py`
 
 ### Adapters
 Adapters provide protocol-specific implementations that integrate the core agent with different systems.
 
 **Available adapters:**
-- **Wyoming** (`cackle/adapters/wyoming/`) - ESP32 and voice assistant protocol
-- **REST** (`cackle/adapters/rest/`) - HTTP JSON API with FastAPI
+- **Wyoming** (`src/chatterbox/adapters/wyoming/`) - ESP32 and voice assistant protocol
+- **REST** (`src/chatterbox/adapters/rest/`) - HTTP JSON API with FastAPI
 
 ### Observability
 LangChain callback handlers provide debugging and observability into agent execution.
 
-**Location:** `cackle/observability.py`
+**Location:** `src/chatterbox/observability.py`
 
 ## Directory Structure
 
 ```
-cackle/                           # Core library code (protocol-agnostic)
-├── __init__.py                   # Library entry point
-├── agent.py                      # Core agent implementation
-├── config.py                     # Configuration management
-├── observability.py              # Debugging and observability
-├── services/                     # STT and TTS services
-│   ├── __init__.py
-│   ├── stt.py                    # Whisper STT service
-│   └── tts.py                    # Piper TTS service
-├── tools/                        # Tool system
-│   ├── __init__.py
-│   ├── registry.py               # Tool registry
-│   └── builtin/                  # Built-in tools
-│       ├── __init__.py
-│       ├── time_tool.py
-│       ├── stt_tool.py           # STT tool for agents
-│       └── tts_tool.py           # TTS tool for agents
-└── adapters/                     # Protocol adapters
-    ├── __init__.py
-    ├── wyoming/                  # Wyoming protocol adapter
-    │   ├── __init__.py
-    │   ├── server.py             # Wyoming server implementation
-    │   └── client.py             # Wyoming test client
-    └── rest/                     # REST API adapter
-        ├── __init__.py
-        └── api.py                # FastAPI application
-
-src/                              # Application entry points
+src/                              # Source code (installable packages)
 ├── __init__.py
-└── main.py                       # Wyoming server CLI entry point
+├── main.py                       # Wyoming server CLI entry point
+├── chatterbox/                   # Core library code (protocol-agnostic)
+│   ├── __init__.py               # Library entry point
+│   ├── agent.py                  # Core agent implementation
+│   ├── config.py                 # Configuration management
+│   ├── observability.py          # Debugging and observability
+│   ├── services/                 # STT and TTS services
+│   │   ├── __init__.py
+│   │   ├── stt.py                # Whisper STT service
+│   │   └── tts.py                # Piper TTS service
+│   ├── tools/                    # Tool system
+│   │   ├── __init__.py
+│   │   ├── registry.py           # Tool registry
+│   │   └── builtin/              # Built-in tools
+│   │       ├── __init__.py
+│   │       ├── time_tool.py
+│   │       ├── stt_tool.py       # STT tool for agents
+│   │       └── tts_tool.py       # TTS tool for agents
+│   └── adapters/                 # Protocol adapters
+│       ├── __init__.py
+│       ├── wyoming/              # Wyoming protocol adapter
+│       │   ├── __init__.py
+│       │   ├── server.py         # Wyoming server implementation
+│       │   └── client.py         # Wyoming test client
+│       └── rest/                 # REST API adapter
+│           ├── __init__.py
+│           └── api.py            # FastAPI application
+└── wyoming_tester/               # Wyoming test utility
+    ├── __init__.py
+    ├── cli.py                    # Command-line interface
+    ├── audio.py                  # Audio utilities
+    └── protocol.py               # Protocol helpers
 
-examples/                         # Example scripts
+demos/                            # Example scripts
 ├── wyoming_server.py             # Running Wyoming server
 ├── direct_agent.py               # Using agent directly
 └── wyoming_client_test.py        # Testing Wyoming server
@@ -147,19 +151,19 @@ Audio Output → Client
 ```
 Wyoming Protocol Client (ESP32, HA)
         ↓
-    Wyoming Server (cackle/adapters/wyoming/)
+    Wyoming Server (src/chatterbox/adapters/wyoming/)
         ↓ ↓ ↓
     STT  AGENT  TTS
     Services
         ↓
     REST API Client
         ↓
-    FastAPI (cackle/adapters/rest/)
+    FastAPI (src/chatterbox/adapters/rest/)
 ```
 
 ## Design Principles
 
-1. **Protocol-Agnostic Core**: The `cackle/` directory contains only core agent logic without protocol dependencies
+1. **Protocol-Agnostic Core**: The `src/chatterbox/` directory contains only core agent logic without protocol dependencies
 2. **Adapter Pattern**: Different protocols (Wyoming, HTTP, WebSocket) integrate through adapters
 3. **Tool Registry**: Centralized tool discovery makes it easy to extend capabilities
 4. **Configuration Management**: Environment-based settings work for both library and application usage
@@ -168,9 +172,9 @@ Wyoming Protocol Client (ESP32, HA)
 ## Library vs Application
 
 ### As a Library
-The `cackle/` package can be imported directly:
+The `src/chatterbox/` package can be imported directly:
 ```python
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 agent = VoiceAssistantAgent(...)
 ```
 
@@ -183,17 +187,17 @@ chatterbox-server --debug
 ## Extension Points
 
 ### Adding a New Tool
-1. Create a new tool module in `cackle/tools/builtin/`
+1. Create a new tool module in `src/chatterbox/tools/builtin/`
 2. Implement the tool function
-3. Register it in `cackle/tools/registry.py`
+3. Register it in `src/chatterbox/tools/registry.py`
 
 ### Adding a New Adapter
-1. Create a new directory in `cackle/adapters/protocol/`
+1. Create a new directory in `src/chatterbox/adapters/protocol/`
 2. Implement the protocol interface
-3. Export public API from `cackle/adapters/protocol/__init__.py`
+3. Export public API from `src/chatterbox/adapters/protocol/__init__.py`
 
 ### Customizing Configuration
-Environment variables in `cackle/config.py` control agent behavior:
+Environment variables in `src/chatterbox/config.py` control agent behavior:
 - `OLLAMA_BASE_URL` - Ollama API endpoint
 - `OLLAMA_MODEL` - Model to use
 - `OLLAMA_TEMPERATURE` - Response creativity (0.0-1.0)

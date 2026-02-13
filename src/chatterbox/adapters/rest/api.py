@@ -8,8 +8,8 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.responses import StreamingResponse
 import numpy as np
 
-from cackle.services import WhisperSTTService, PiperTTSService
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.services import WhisperSTTService, PiperTTSService
+from chatterbox.agent import VoiceAssistantAgent
 
 logger = logging.getLogger(__name__)
 

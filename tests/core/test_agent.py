@@ -1,8 +1,8 @@
-"""Tests for the core Cackle agent."""
+"""Tests for the core Chatterbox agent."""
 
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 
 
 def test_agent_initialization():
@@ -18,7 +18,7 @@ def test_agent_initialization():
 @pytest.mark.asyncio
 async def test_agent_process_input():
     """Test that agent can process basic input with mocked LLM."""
-    with patch("cackle.agent.initialize_agent") as mock_init_agent:
+    with patch("chatterbox.agent.initialize_agent") as mock_init_agent:
         # Mock the agent executor
         mock_agent = AsyncMock()
         mock_agent.run = MagicMock(return_value="Mocked response")

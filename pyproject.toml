@@ -66,9 +66,9 @@ test = [
 ]
 
 [project.scripts]
-chatterbox-server = "src.main:cli_main"
-chatterbox-wyoming-client = "examples.wyoming_client_test:main"
-chatterbox-test-agent = "examples.direct_agent:main"
+chatterbox-server = "chatterbox.main:cli_main"
+chatterbox-wyoming-client = "demos.wyoming_client_test:main"
+chatterbox-test-agent = "demos.direct_agent:main"
 wyoming-tester = "wyoming_tester.cli:main"
 
 [project.urls]
@@ -77,13 +77,12 @@ Repository = "https://github.com/yourusername/chatterbox.git"
 Issues = "https://github.com/yourusername/chatterbox/issues"
 
 [tool.setuptools]
-packages = ["src", "cackle", "cackle.tools", "cackle.tools.builtin", "cackle.services", "cackle.adapters", "cackle.adapters.wyoming", "cackle.adapters.rest", "examples", "tests", "wyoming_tester"]
+packages = ["chatterbox", "chatterbox.audio", "chatterbox.config", "chatterbox.services", "chatterbox.tools", "chatterbox.tools.builtin", "chatterbox.adapters", "chatterbox.adapters.wyoming", "chatterbox.adapters.rest", "wyoming_tester", "demos", "tests"]
 
 [tool.setuptools.package-dir]
-src = "src"
-cackle = "cackle"
-examples = "examples"
-tests = "tests"
+"" = "."
+chatterbox = "src/chatterbox"
+wyoming_tester = "src/wyoming_tester"
 
 [tool.black]
 line-length = 88
@@ -144,7 +143,7 @@ addopts = "-v --strict-markers --disable-warnings"
 # 4. LangChain memory migration → Intentional (ConversationBufferWindowMemory from langchain-classic)
 
 [tool.coverage.run]
-source = ["src", "cackle"]
+source = ["src"]
 branch = true
 omit = [
     "*/tests/*",

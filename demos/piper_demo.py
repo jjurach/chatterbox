@@ -28,7 +28,7 @@ import wave
 # Add project root to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from cackle.services.tts import PiperTTSService
+from chatterbox.services.tts import PiperTTSService
 
 
 class PiperDemo:

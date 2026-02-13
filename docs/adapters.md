@@ -1,6 +1,6 @@
 # Protocol Adapters
 
-Adapters provide protocol-specific implementations that integrate the core Cackle agent with different systems. This document explains how adapters work and how to create custom adapters.
+Adapters provide protocol-specific implementations that integrate the core Chatterbox agent with different systems. This document explains how adapters work and how to create custom adapters.
 
 ## Available Adapters
 
@@ -8,7 +8,7 @@ Adapters provide protocol-specific implementations that integrate the core Cackl
 
 The Wyoming adapter implements the Wyoming protocol for communication with ESP32 voice devices.
 
-**Location:** `cackle/adapters/wyoming/`
+**Location:** `src/chatterbox/adapters/wyoming/`
 
 **Components:**
 - `server.py` - Wyoming protocol server implementation
@@ -28,7 +28,7 @@ This is the audio format you should configure in your ESPHome firmware when flas
 **Usage:**
 
 ```python
-from cackle.adapters.wyoming import VoiceAssistantServer
+from chatterbox.adapters.wyoming import VoiceAssistantServer
 
 server = VoiceAssistantServer(
     host="0.0.0.0",
@@ -53,7 +53,7 @@ python examples/wyoming_server.py
 Adapters follow a consistent pattern:
 
 ```
-cackle/adapters/
+src/chatterbox/adapters/
 ├── protocol/
 │   ├── __init__.py          # Public API
 │   ├── server.py            # Protocol server implementation
@@ -82,17 +82,17 @@ The Wyoming server integrates with the agent through:
 ### Step 1: Create Adapter Directory
 
 ```bash
-mkdir -p cackle/adapters/myprotocol
-touch cackle/adapters/myprotocol/__init__.py
-touch cackle/adapters/myprotocol/server.py
+mkdir -p src/chatterbox/adapters/myprotocol
+touch src/chatterbox/adapters/myprotocol/__init__.py
+touch src/chatterbox/adapters/myprotocol/server.py
 ```
 
 ### Step 2: Implement Server Class
 
 ```python
-# cackle/adapters/myprotocol/server.py
+# src/chatterbox/adapters/myprotocol/server.py
 
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 
 class MyProtocolServer:
     """Server implementation for MyProtocol."""
@@ -121,11 +121,11 @@ class MyProtocolServer:
 ### Step 3: Export Public API
 
 ```python
-# cackle/adapters/myprotocol/__init__.py
+# src/chatterbox/adapters/myprotocol/__init__.py
 
-"""MyProtocol adapter for Cackle agent."""
+"""MyProtocol adapter for Chatterbox agent."""
 
-from cackle.adapters.myprotocol.server import MyProtocolServer
+from chatterbox.adapters.myprotocol.server import MyProtocolServer
 
 __all__ = ["MyProtocolServer"]
 ```
@@ -135,7 +135,7 @@ __all__ = ["MyProtocolServer"]
 ```python
 # tests/adapters/myprotocol/test_server.py
 
-from cackle.adapters.myprotocol import MyProtocolServer
+from chatterbox.adapters.myprotocol import MyProtocolServer
 
 def test_server_initialization():
     server = MyProtocolServer()
@@ -169,7 +169,7 @@ async def handle_input(self, user_input: str) -> str:
 
 ### 3. Support Configuration
 ```python
-from cackle.config import get_settings
+from chatterbox.config import get_settings
 
 class MyProtocolServer:
     def __init__(self, **kwargs):
@@ -181,7 +181,7 @@ class MyProtocolServer:
 ### 4. Provide Test Clients
 Include test/debug clients for development:
 ```python
-# cackle/adapters/myprotocol/client.py
+# src/chatterbox/adapters/myprotocol/client.py
 async def send_test_message(text: str, host: str, port: int):
     """Send a test message to the server."""
     pass
@@ -200,7 +200,7 @@ Explain how protocol features map to agent capabilities:
 
 ```python
 from fastapi import FastAPI
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 
 app = FastAPI()
 
@@ -215,7 +215,7 @@ async def chat(message: str):
 
 ```python
 import websockets
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 
 async def handle_connection(websocket):
     agent = VoiceAssistantAgent()

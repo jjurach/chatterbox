@@ -13,8 +13,8 @@ from langchain_classic.agents import initialize_agent, AgentExecutor
 from langchain_classic.memory import ConversationBufferWindowMemory
 from langchain_openai import ChatOpenAI
 
-from cackle.observability import ObservabilityHandler
-from cackle.tools import get_available_tools
+from chatterbox.observability import ObservabilityHandler
+from chatterbox.tools import get_available_tools
 
 logger = logging.getLogger(__name__)
 

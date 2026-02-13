@@ -1,7 +1,7 @@
-"""Tests for the Cackle tools system."""
+"""Tests for the Chatterbox tools system."""
 
-from cackle.tools import get_available_tools
-from cackle.tools.builtin import get_time
+from chatterbox.tools import get_available_tools
+from chatterbox.tools.builtin import get_time
 
 
 def test_get_available_tools():

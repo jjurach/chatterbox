@@ -251,7 +251,7 @@ When the server is in `full` or `combined` mode, the agent has access to STT and
 ### Example: Using Tools in Agent
 
 ```python
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 
 agent = VoiceAssistantAgent(
     ollama_base_url="http://localhost:11434/v1",
@@ -413,7 +413,7 @@ chatterbox-server
 ### STT Service
 
 ```python
-from cackle.services import WhisperSTTService
+from chatterbox.services import WhisperSTTService
 
 stt = WhisperSTTService(
     model_size="base",
@@ -440,7 +440,7 @@ result = await stt.transcribe_file("/path/to/audio.wav")
 ### TTS Service
 
 ```python
-from cackle.services import PiperTTSService
+from chatterbox.services import PiperTTSService
 
 tts = PiperTTSService(
     voice="en_US-lessac-medium",

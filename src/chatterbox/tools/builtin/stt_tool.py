@@ -3,7 +3,7 @@
 from langchain.tools import BaseTool
 from typing import Optional
 
-from cackle.services import WhisperSTTService
+from chatterbox.services import WhisperSTTService
 
 
 class STTTool(BaseTool):

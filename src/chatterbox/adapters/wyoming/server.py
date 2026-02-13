@@ -17,8 +17,8 @@ from wyoming.event import Event
 from wyoming.server import AsyncServer, AsyncEventHandler
 from wyoming.tts import Synthesize, SynthesizeVoice
 
-from cackle.agent import VoiceAssistantAgent
-from cackle.services import WhisperSTTService, PiperTTSService
+from chatterbox.agent import VoiceAssistantAgent
+from chatterbox.services import WhisperSTTService, PiperTTSService
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
 """
-Tool registry for the Cackle agent.
+Tool registry for the Chatterbox agent.
 
 This module provides a centralized registry of available tools that can be
 used by the agent. Tools can be built-in or custom.
@@ -7,9 +7,9 @@ used by the agent. Tools can be built-in or custom.
 
 from typing import List
 from langchain_classic.agents import Tool
-from cackle.tools.builtin.time_tool import get_time
-from cackle.tools.builtin.stt_tool import STTTool
-from cackle.tools.builtin.tts_tool import TTSTool
+from chatterbox.tools.builtin.time_tool import get_time
+from chatterbox.tools.builtin.stt_tool import STTTool
+from chatterbox.tools.builtin.tts_tool import TTSTool
 
 
 def get_available_tools() -> List[Tool]:

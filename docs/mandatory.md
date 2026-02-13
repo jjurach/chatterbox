@@ -1,14 +1,14 @@
-# Project Guidelines: Cackle
+# Project Guidelines: Chatterbox
 
-This document provides project-specific guidelines for Cackle (Chatterbox).
+This document provides project-specific guidelines for Chatterbox.
 
 ## Project Overview
 
-Cackle is a conversational AI agent framework with STT, TTS, and Wyoming protocol support.
+Chatterbox is a conversational AI agent framework with STT, TTS, and Wyoming protocol support.
 
 ## Project Structure
 
-- `cackle/`: Core library code
+- `src/chatterbox/`: Core library code
 - `src/`: Application entry points
 - `tests/`: Test suite
 - `docs/`: Documentation

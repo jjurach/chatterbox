@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example: Using the Cackle Agent Directly
+Example: Using the Chatterbox Agent Directly
 
 This example shows how to use the core agent without any protocol adapter.
 This is useful when integrating the agent into your own application or when
@@ -16,7 +16,7 @@ Usage:
 import asyncio
 import logging
 
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 
 
 async def main():

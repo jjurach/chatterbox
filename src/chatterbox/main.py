@@ -21,8 +21,8 @@ from typing import Any
 
 from langchain_core import globals as langchain_globals
 
-from cackle.config import get_settings
-from cackle.adapters.wyoming import WyomingServer
+from chatterbox.config import get_settings
+from chatterbox.adapters.wyoming import WyomingServer
 
 # Load configuration
 settings = get_settings()
@@ -41,7 +41,7 @@ async def run_rest_server(debug: bool = False) -> None:
     Args:
         debug: Enable debug mode
     """
-    from cackle.adapters.rest import create_app
+    from chatterbox.adapters.rest import create_app
     import uvicorn
 
     app = create_app(

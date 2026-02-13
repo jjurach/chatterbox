@@ -1,13 +1,13 @@
 # Implementation Reference
 
-This document provides practical implementation patterns and reference implementations for Cackle.
+This document provides practical implementation patterns and reference implementations for Chatterbox.
 
 ## Key Patterns
 
 ### STT Service Implementation (Whisper)
 
 ```python
-from cackle.services.stt import WhisperSTTService
+from chatterbox.services.stt import WhisperSTTService
 
 stt = WhisperSTTService(model_size="base")
 transcript = stt.transcribe("audio.wav")
@@ -16,7 +16,7 @@ transcript = stt.transcribe("audio.wav")
 ### TTS Service Implementation (Piper)
 
 ```python
-from cackle.services.tts import PiperTTSService
+from chatterbox.services.tts import PiperTTSService
 
 tts = PiperTTSService()
 audio_path = tts.synthesize("Hello world", "output.wav")
@@ -25,7 +25,7 @@ audio_path = tts.synthesize("Hello world", "output.wav")
 ### Agent with Tools
 
 ```python
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 
 agent = VoiceAssistantAgent()
 response = agent.process("What time is it?")
@@ -33,7 +33,7 @@ response = agent.process("What time is it?")
 
 ### Tool Definition
 
-Built-in tools are defined in `cackle/tools/builtin/` and registered in `cackle/tools/registry.py`.
+Built-in tools are defined in `src/chatterbox/tools/builtin/` and registered in `src/chatterbox/tools/registry.py`.
 
 ```python
 from langchain.tools import tool
@@ -50,7 +50,7 @@ def my_custom_tool(query: str) -> str:
 
 ```python
 def test_stt_transcription(mocker):
-    mock_stt = mocker.patch("cackle.services.stt.WhisperSTTService.transcribe")
+    mock_stt = mocker.patch("chatterbox.services.stt.WhisperSTTService.transcribe")
     mock_stt.return_value = "hello"
     
     # ... test logic

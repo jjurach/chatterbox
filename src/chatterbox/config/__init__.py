@@ -1,4 +1,4 @@
-"""Configuration modules for Cackle components."""
+"""Configuration modules for Chatterbox components."""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -52,7 +52,7 @@ def get_settings() -> Settings:
 
 
 # Import batch processing configs
-from cackle.config.batch_processing import (
+from chatterbox.config.batch_processing import (
     AudioFormatConfig,
     BatchProcessingConfig,
     BufferConstraintsConfig,

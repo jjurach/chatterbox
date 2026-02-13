@@ -1,4 +1,4 @@
-# Cackle Agent - Quick Start Guide
+# Chatterbox Agent - Quick Start Guide
 
 ## Installation
 
@@ -13,11 +13,11 @@ pip install -e .
 
 ## Using the Agent Directly
 
-The simplest way to use Cackle is with the core agent directly:
+The simplest way to use Chatterbox is with the core agent directly:
 
 ```python
 import asyncio
-from cackle.agent import VoiceAssistantAgent
+from chatterbox.agent import VoiceAssistantAgent
 
 async def main():
     agent = VoiceAssistantAgent(
@@ -33,7 +33,7 @@ asyncio.run(main())
 
 Or run the example:
 ```bash
-python examples/direct_agent.py
+python demos/direct_agent.py
 ```
 
 ## Running the Wyoming Server

@@ -12,10 +12,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cackle.agent import VoiceAssistantAgent
-from cackle.adapters.wyoming import VoiceAssistantServer, WyomingServer
-from cackle.tools import get_available_tools
-from cackle.tools.builtin import get_time
+from chatterbox.agent import VoiceAssistantAgent
+from chatterbox.adapters.wyoming import VoiceAssistantServer, WyomingServer
+from chatterbox.tools import get_available_tools
+from chatterbox.tools.builtin import get_time
 
 
 @pytest.fixture

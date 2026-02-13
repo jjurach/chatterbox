@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from cackle.adapters.rest import create_app
+from chatterbox.adapters.rest import create_app
 
 
 @pytest.fixture

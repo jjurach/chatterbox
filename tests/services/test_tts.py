@@ -2,7 +2,7 @@
 
 import pytest
 
-from cackle.services.tts import PiperTTSService
+from chatterbox.services.tts import PiperTTSService
 
 
 @pytest.fixture

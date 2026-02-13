@@ -133,7 +133,7 @@ This document describes the current batch processing model for Whisper STT integ
 ## Current Implementation Details
 
 ### Audio Buffer
-**Location:** `cackle/adapters/wyoming/server.py:76`
+**Location:** `src/chatterbox/adapters/wyoming/server.py:76`
 ```python
 self.audio_buffer = bytearray()  # Initialized on connection
 ```

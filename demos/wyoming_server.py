@@ -2,7 +2,7 @@
 """
 Example: Running a Wyoming Protocol Voice Assistant Server
 
-This example shows how to use the cackle-agent library with a Wyoming
+This example shows how to use the chatterbox-agent library with a Wyoming
 protocol server for ESP32 voice devices.
 
 Prerequisites:
@@ -21,8 +21,8 @@ import signal
 from typing import Any
 
 from langchain_core import globals as langchain_globals
-from cackle.config import get_settings
-from cackle.adapters.wyoming import WyomingServer
+from chatterbox.config import get_settings
+from chatterbox.adapters.wyoming import WyomingServer
 
 
 async def main(debug: bool = False) -> None:

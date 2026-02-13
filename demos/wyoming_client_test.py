@@ -18,7 +18,7 @@ import asyncio
 import logging
 import sys
 
-from cackle.adapters.wyoming.client import test_backend
+from chatterbox.adapters.wyoming.client import test_backend
 
 
 def main():
