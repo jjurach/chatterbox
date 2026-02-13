@@ -60,6 +60,7 @@ api:
 ota:
   - platform: esphome
     id: ota_esphome
+    password: !secret ota_password
 
 logger:
   hardware_uart: USB_SERIAL_JTAG
