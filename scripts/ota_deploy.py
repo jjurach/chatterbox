@@ -146,27 +146,26 @@ def generate_firmware(config_path: Optional[str] = None) -> Optional[str]:
             )
 
         # Find the generated binary
-        # ESPHome builds to .esphome/build/<device_name>/.pioenvs/<device_name>/firmware.bin
-        # Or sometimes: .esphome/build/esp32-s3-box-3/.pioenvs/esp32-s3-box-3/firmware.bin
-        config_stem = config_path.stem  # e.g., "voice-assistant"
+        # ESPHome creates .esphome in the same directory as the config file
+        # Path: <config_dir>/.esphome/build/<device_name>/.pioenvs/<device_name>/firmware.bin
+        config_dir = config_path.parent
+        build_dir = config_dir / ".esphome" / "build"
 
-        # Search in multiple possible locations
-        search_paths = [
-            Path(__file__).parent.parent / ".esphome" / "build" / "*" / ".pioenvs" / "*" / "firmware.bin",
-            Path(__file__).parent.parent / ".esphome" / "build" / "**" / "firmware.bin",
-        ]
+        print(f"   🔍 Searching for firmware in: {build_dir}")
 
-        firmware_files = []
-        for pattern in search_paths:
-            firmware_files.extend(Path(pattern.parts[0]).glob(str(Path(*pattern.parts[1:]))))
-            if firmware_files:
-                break
+        if not build_dir.exists():
+            raise OTADeployError(
+                f"Build directory not found: {build_dir}\n"
+                f"ESPHome compilation may have failed. Check the output above for errors."
+            )
+
+        # Search for firmware.bin files
+        firmware_files = list(build_dir.glob("*/.pioenvs/*/firmware.bin"))
 
         if not firmware_files:
-            build_dir = Path(__file__).parent.parent / ".esphome" / "build"
-            if build_dir.exists():
-                # List what's actually in the build directory for debugging
-                contents = list(build_dir.glob("*"))
+            # List what's actually in the build directory for debugging
+            contents = list(build_dir.glob("*"))
+            if contents:
                 contents_str = "\n   ".join([str(c.relative_to(build_dir)) for c in contents])
                 raise OTADeployError(
                     f"No firmware.bin found in build directory.\n"
@@ -175,8 +174,8 @@ def generate_firmware(config_path: Optional[str] = None) -> Optional[str]:
                 )
             else:
                 raise OTADeployError(
-                    f"Build directory not found: {build_dir}\n"
-                    f"ESPHome may not have completed successfully."
+                    f"Build directory is empty: {build_dir}\n"
+                    f"ESPHome compilation may have failed."
                 )
 
         # Use the most recently modified one
