@@ -1,5 +1,7 @@
 # Epic 1: OTA & Foundation - Project Plan
 
+**Status:** In Planning
+
 ## Epic Overview
 
 Epic 1 establishes the foundational infrastructure for the Chatterbox device, focusing on Over-The-Air (OTA) update capabilities and a working state machine MVP that cycles through the 6 device states with visual indicators.
@@ -347,5 +349,4 @@ End-to-end testing of OTA deployment and state machine validation.
 ---
 
 **Last Updated:** 2026-02-13
-**Status:** In Planning
 **Epic Owner:** TBD
