@@ -12,14 +12,17 @@ Usage:
     # Run continuous validation loop
     python ocr_validate.py --loop --interval 5
 
-    # Generate validation report
-    python ocr_validate.py --loop --duration 60 --report report.json
+    # Generate validation report and keep frames
+    python ocr_validate.py --loop --duration 60 --report report.json --keep
 
     # Optionally name the device for logging
     python ocr_validate.py --device "Box3B-Dev" --loop
 
     # Validate multiple devices with batch file
     python ocr_validate.py --batch devices.json --duration 120
+
+    # Save frames to specific directory
+    python ocr_validate.py --keep --frames-dir /tmp/frames
 """
 
 import argparse
@@ -28,6 +31,7 @@ import json
 import sys
 import time
 import logging
+import shutil
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -129,13 +133,16 @@ class OCRValidator:
     IMAGE_WIDTH = 320
     IMAGE_HEIGHT = 240
 
-    def __init__(self, video_device: str = "/dev/video0", use_gpu: bool = False):
+    def __init__(self, video_device: str = "/dev/video0", use_gpu: bool = False,
+                 keep_frames: bool = False, frames_dir: Optional[str] = None):
         """
         Initialize OCR validator.
 
         Args:
             video_device: Path to video device (default: /dev/video0)
             use_gpu: Whether to use GPU acceleration (default: False)
+            keep_frames: Whether to save captured frames (default: False)
+            frames_dir: Directory to save frames (default: tmp/ocr_frames)
 
         Raises:
             OCRValidationError: If OCR initialization fails
@@ -143,6 +150,14 @@ class OCRValidator:
         self.video_device = video_device
         self.use_gpu = use_gpu
         self.results = []
+        self.keep_frames = keep_frames
+        self.frames_dir = Path(frames_dir) if frames_dir else Path("tmp/ocr_frames")
+        self.frame_count = 0
+
+        # Create frames directory if keeping frames
+        if self.keep_frames:
+            self.frames_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Frame storage: {self.frames_dir.absolute()}")
 
         try:
             logger.info("Initializing EasyOCR reader...")
@@ -155,24 +170,43 @@ class OCRValidator:
         except Exception as e:
             raise OCRValidationError(f"Failed to initialize OCR: {e}")
 
-    def _open_video_feed(self) -> Optional[cv2.VideoCapture]:
-        """Open video device for reading frames."""
-        try:
-            cap = cv2.VideoCapture(self.video_device)
-            if not cap.isOpened():
-                logger.error(f"Failed to open video device: {self.video_device}")
-                return None
+    def _open_video_feed(self, retries: int = 3) -> Optional[cv2.VideoCapture]:
+        """Open video device for reading frames with retry logic."""
+        for attempt in range(retries):
+            try:
+                cap = cv2.VideoCapture(self.video_device)
+                if not cap.isOpened():
+                    if attempt < retries - 1:
+                        logger.warning(f"Failed to open video device (attempt {attempt + 1}/{retries}), retrying...")
+                        time.sleep(0.5)
+                        continue
+                    else:
+                        logger.error(f"Failed to open video device after {retries} attempts: {self.video_device}")
+                        return None
 
-            # Set resolution
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.IMAGE_WIDTH)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.IMAGE_HEIGHT)
+                # Set resolution
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.IMAGE_WIDTH)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.IMAGE_HEIGHT)
 
-            logger.info(f"✅ Opened video device: {self.video_device}")
-            return cap
+                # Add warmup frames to let device settle
+                for _ in range(2):
+                    ret, _ = cap.read()
+                    if not ret:
+                        logger.warning("Failed to read warmup frame")
+                        break
+                    time.sleep(0.05)
 
-        except Exception as e:
-            logger.error(f"Error opening video device: {e}")
-            return None
+                logger.debug(f"✅ Opened video device: {self.video_device}")
+                return cap
+
+            except Exception as e:
+                if attempt < retries - 1:
+                    logger.warning(f"Error opening video device (attempt {attempt + 1}/{retries}): {e}")
+                    time.sleep(0.5)
+                else:
+                    logger.error(f"Error opening video device after {retries} attempts: {e}")
+
+        return None
 
     def _preprocess_frame(self, frame: cv2.Mat) -> cv2.Mat:
         """Preprocess frame for better OCR accuracy."""
@@ -187,6 +221,33 @@ class OCRValidator:
         filtered = cv2.bilateralFilter(enhanced, 9, 75, 75)
 
         return filtered
+
+    def _save_frame(self, frame: cv2.Mat, processed: cv2.Mat, letter: Optional[str],
+                    confidence: float) -> None:
+        """Save raw and processed frames for debugging."""
+        if not self.keep_frames:
+            return
+
+        try:
+            self.frame_count += 1
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+            letter_str = letter if letter else "none"
+            conf_str = f"{confidence:.0%}".replace("%", "pct")
+
+            # Save raw frame
+            raw_filename = f"{self.frame_count:04d}_raw_{letter_str}_{conf_str}_{timestamp}.png"
+            raw_path = self.frames_dir / raw_filename
+            cv2.imwrite(str(raw_path), frame)
+
+            # Save processed frame
+            proc_filename = f"{self.frame_count:04d}_processed_{letter_str}_{conf_str}_{timestamp}.png"
+            proc_path = self.frames_dir / proc_filename
+            cv2.imwrite(str(proc_path), processed)
+
+            logger.debug(f"Saved frames: {raw_filename}, {proc_filename}")
+
+        except Exception as e:
+            logger.error(f"Failed to save frame: {e}")
 
     def _extract_letter(self, frame: cv2.Mat) -> Tuple[Optional[str], float]:
         """
@@ -207,6 +268,7 @@ class OCRValidator:
 
             if not results:
                 logger.debug("No text detected in frame")
+                self._save_frame(frame, processed, None, 0.0)
                 return None, 0.0
 
             # Extract letters with confidence > threshold
@@ -218,6 +280,7 @@ class OCRValidator:
 
             if not valid_detections:
                 logger.debug("No valid OCR detections above confidence threshold")
+                self._save_frame(frame, processed, None, 0.0)
                 return None, 0.0
 
             # Find single-letter detections
@@ -231,6 +294,7 @@ class OCRValidator:
                 # Use highest confidence detection
                 letter, confidence = max(single_letters, key=lambda x: x[1])
                 logger.debug(f"Detected letter: {letter} (confidence: {confidence:.1%})")
+                self._save_frame(frame, processed, letter, confidence)
                 return letter, confidence
 
             # If no single letters found, check for any valid letter in text
@@ -238,9 +302,11 @@ class OCRValidator:
                 for char in text:
                     if char in self.VALID_LETTERS:
                         logger.debug(f"Detected letter in text: {char} (confidence: {conf:.1%})")
+                        self._save_frame(frame, processed, char, conf)
                         return char, conf
 
             logger.debug(f"No valid letters found. Detections: {valid_detections}")
+            self._save_frame(frame, processed, None, 0.0)
             return None, 0.0
 
         except Exception as e:
@@ -263,24 +329,29 @@ class OCRValidator:
 
         try:
             detections = []
+            frames_read = 0
 
             for i in range(samples):
-                ret, frame = cap.read()
-                if not ret:
-                    logger.warning(f"Failed to read frame {i}")
+                try:
+                    ret, frame = cap.read()
+                    if not ret or frame is None:
+                        logger.debug(f"Failed to read frame {i}")
+                        continue
+
+                    frames_read += 1
+                    letter, confidence = self._extract_letter(frame)
+                    if letter:
+                        detections.append((letter, confidence))
+
+                    # Small delay between frames
+                    time.sleep(0.1)
+
+                except Exception as e:
+                    logger.warning(f"Error processing frame {i}: {e}")
                     continue
 
-                letter, confidence = self._extract_letter(frame)
-                if letter:
-                    detections.append((letter, confidence))
-
-                # Small delay between frames
-                time.sleep(0.1)
-
-            cap.release()
-
             if not detections:
-                logger.warning("No letters detected in any frame")
+                logger.warning(f"No letters detected in {frames_read} frames")
                 return None, 0.0
 
             # Return most common letter and average confidence
@@ -294,14 +365,15 @@ class OCRValidator:
             )
             avg_confidence = sum(letter_counts[most_common_letter]) / len(letter_counts[most_common_letter])
 
-            logger.info(f"Validation complete: {most_common_letter} ({avg_confidence:.1%} confidence)")
+            logger.debug(f"Validation complete: {most_common_letter} ({avg_confidence:.1%} confidence)")
             return most_common_letter, avg_confidence
 
         except Exception as e:
             logger.error(f"Validation error: {e}")
             return None, 0.0
         finally:
-            cap.release()
+            if cap:
+                cap.release()
 
     def validate_state(self, device: str, expected_state: Optional[str] = None) -> ValidationResult:
         """
@@ -391,6 +463,8 @@ class OCRValidator:
         print(f"Interval: {interval}s")
         if end_time:
             print(f"Duration: {duration}s")
+        if self.keep_frames:
+            print(f"Frame storage: {self.frames_dir.absolute()}")
         print(f"{'='*60}\n")
 
         try:
@@ -405,6 +479,10 @@ class OCRValidator:
                 print(f"[Iteration {iteration}]")
                 result = self.validate_state(device)
                 print(result)
+
+                # Cleanup old frames periodically to prevent disk bloat
+                if self.keep_frames and iteration % 10 == 0:
+                    cleanup_old_frames(self.frames_dir, keep_count=100)
 
                 # Wait for next iteration
                 remaining = (end_time - datetime.now()).total_seconds() if end_time else interval
@@ -513,12 +591,33 @@ class OCRValidator:
             for state, stats in by_state.items():
                 print(f"  {state}: {stats['count']} ({stats['success_rate']})")
 
+        if self.keep_frames and self.frames_dir.exists():
+            frame_count = len(list(self.frames_dir.glob('*.png')))
+            print(f"\nFrames Captured:")
+            print(f"  Directory: {self.frames_dir.absolute()}")
+            print(f"  File count: {frame_count}")
+
         print(f"\n{'='*60}\n")
 
 
 class OCRValidationError(Exception):
     """Base exception for OCR validation errors."""
     pass
+
+
+def cleanup_old_frames(frames_dir: Path, keep_count: int = 100) -> None:
+    """Remove old frames if directory has too many files."""
+    if not frames_dir.exists():
+        return
+
+    try:
+        files = sorted(frames_dir.glob('*.png'), key=lambda x: x.stat().st_mtime, reverse=True)
+        if len(files) > keep_count:
+            for old_file in files[keep_count:]:
+                old_file.unlink()
+                logger.debug(f"Removed old frame: {old_file.name}")
+    except Exception as e:
+        logger.warning(f"Failed to cleanup old frames: {e}")
 
 
 def load_batch_file(batch_file: str) -> List[Dict[str, str]]:
@@ -563,6 +662,10 @@ def main():
     # Output options
     parser.add_argument('--report',
                        help='Save validation report to JSON file')
+    parser.add_argument('--keep', action='store_true',
+                       help='Keep captured frames for debugging')
+    parser.add_argument('--frames-dir', default='tmp/ocr_frames',
+                       help='Directory to save frames (default: tmp/ocr_frames)')
     parser.add_argument('--gpu', action='store_true',
                        help='Use GPU acceleration for OCR')
     parser.add_argument('--video-device', default='/dev/video0',
@@ -572,7 +675,12 @@ def main():
 
     try:
         # Initialize validator
-        validator = OCRValidator(video_device=args.video_device, use_gpu=args.gpu)
+        validator = OCRValidator(
+            video_device=args.video_device,
+            use_gpu=args.gpu,
+            keep_frames=args.keep,
+            frames_dir=args.frames_dir
+        )
 
         # Single device validation
         if args.device:
