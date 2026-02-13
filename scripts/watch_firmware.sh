@@ -20,7 +20,11 @@ set -e
 # Get the project root directory
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FIRMWARE_FILE="$PROJECT_ROOT/firmware/voice-assistant.yaml"
+LOG_FILE="$PROJECT_ROOT/tmp/serial.log"
 ESPHOME_PID=""
+
+# Create tmp directory if it doesn't exist
+mkdir -p "$(dirname "$LOG_FILE")"
 
 # Parse device argument (default to /dev/ttyACM0 for serial, or --ota for OTA)
 DEVICE_ARG="${1:---device /dev/ttyACM0}"
@@ -81,15 +85,25 @@ start_esphome() {
     echo -e "\n${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}▶ Starting ESPHome ($(date '+%H:%M:%S'))${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}Log file: $LOG_FILE${NC}"
+
+    # Log separator
+    {
+        echo ""
+        echo "================================================================================="
+        echo "ESPHome session started: $(date)"
+        echo "================================================================================="
+    } | tee -a "$LOG_FILE"
 
     # Start esphome in background and capture PID
+    # Redirect both stdout and stderr to tee so they're logged and displayed
     cd "$PROJECT_ROOT"
     if [ -z "$DEVICE_ARG" ]; then
         # OTA mode
-        esphome run firmware/voice-assistant.yaml &
+        esphome run firmware/voice-assistant.yaml 2>&1 | tee -a "$LOG_FILE" &
     else
         # Serial mode
-        esphome run firmware/voice-assistant.yaml $DEVICE_ARG &
+        esphome run firmware/voice-assistant.yaml $DEVICE_ARG 2>&1 | tee -a "$LOG_FILE" &
     fi
     ESPHOME_PID=$!
 
@@ -102,12 +116,14 @@ start_esphome() {
 stop_esphome() {
     if [ -n "$ESPHOME_PID" ] && kill -0 "$ESPHOME_PID" 2>/dev/null; then
         echo -e "\n${YELLOW}⏹  Stopping ESPHome (PID: $ESPHOME_PID)${NC}"
+        echo "Stopping ESPHome..." | tee -a "$LOG_FILE"
         kill "$ESPHOME_PID" 2>/dev/null || true
 
         # Wait for process to exit
         for i in {1..10}; do
             if ! kill -0 "$ESPHOME_PID" 2>/dev/null; then
                 echo -e "${GREEN}✓ ESPHome stopped${NC}"
+                echo "ESPHome stopped: $(date)" | tee -a "$LOG_FILE"
                 return 0
             fi
             sleep 0.5
@@ -115,6 +131,7 @@ stop_esphome() {
 
         # Force kill if needed
         echo -e "${RED}Force killing ESPHome${NC}"
+        echo "Force killing ESPHome: $(date)" | tee -a "$LOG_FILE"
         kill -9 "$ESPHOME_PID" 2>/dev/null || true
     fi
     ESPHOME_PID=""
@@ -202,6 +219,14 @@ main() {
             echo ""
         fi
     fi
+
+    # Log script start
+    {
+        echo ""
+        echo "Watch Firmware script started: $(date)"
+        echo "Upload method: $UPLOAD_METHOD"
+        echo ""
+    } | tee -a "$LOG_FILE"
 
     # Start the initial esphome process
     start_esphome
