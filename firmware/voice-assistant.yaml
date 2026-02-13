@@ -82,6 +82,43 @@ wifi:
 
 captive_portal:
 
+# Demo mode: automatically cycle through all device states every 6 seconds
+# Useful for testing display and OCR validator without voice assistant
+interval:
+  - interval: 6000ms
+    then:
+      - if:
+          condition:
+            lambda: 'return id(demo_mode_enabled);'
+          then:
+            - lambda: |
+                int counter = id(demo_cycle_counter);
+                counter = (counter + 1) % 6;
+                id(demo_cycle_counter) = counter;
+
+                // Demo cycle: N → H → S → A → W → H → (repeat)
+                // uninitialized → idle → listening → thinking → replying → idle
+                switch(counter) {
+                  case 0:
+                    id(voice_assistant_fsm).trigger_input(std::string("boot_successful"));
+                    break;
+                  case 1:
+                    id(voice_assistant_fsm).trigger_input(std::string("wake_word_detected"));
+                    break;
+                  case 2:
+                    id(voice_assistant_fsm).trigger_input(std::string("stt_end"));
+                    break;
+                  case 3:
+                    id(voice_assistant_fsm).trigger_input(std::string("tts_start"));
+                    break;
+                  case 4:
+                    id(voice_assistant_fsm).trigger_input(std::string("tts_end"));
+                    break;
+                  case 5:
+                    id(voice_assistant_fsm).trigger_input(std::string("wake_word_detected"));
+                    break;
+                }
+
 button:
   - platform: factory_reset
     id: factory_reset_btn
@@ -294,6 +331,14 @@ globals:
   - id: global_is_timer
     type: bool
     restore_value: false
+  - id: demo_mode_enabled
+    type: bool
+    restore_value: false
+    initial_value: 'true'
+  - id: demo_cycle_counter
+    type: int
+    restore_value: false
+    initial_value: '0'
 
 state_machine:
   id: voice_assistant_fsm
