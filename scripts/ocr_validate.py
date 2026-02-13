@@ -2,19 +2,21 @@
 """
 OCR Validation Tool for Chatterbox Devices
 
-Validates device state by reading the display via video feed and using OCR
-to verify the displayed letter matches the expected state. Supports single
-device validation and automated validation loops.
+Validates device state by reading the display via /dev/video0 and using OCR
+to recognize the displayed letter. Just needs a camera - no network connection needed!
 
 Usage:
-    # Validate device display once
-    python ocr_validate.py --device esp32.local
+    # Validate device display once (no args needed!)
+    python ocr_validate.py
 
     # Run continuous validation loop
-    python ocr_validate.py --device esp32.local --loop --interval 5
+    python ocr_validate.py --loop --interval 5
 
     # Generate validation report
-    python ocr_validate.py --device esp32.local --loop --duration 60 --report report.json
+    python ocr_validate.py --loop --duration 60 --report report.json
+
+    # Optionally name the device for logging
+    python ocr_validate.py --device "Box3B-Dev" --loop
 
     # Validate multiple devices with batch file
     python ocr_validate.py --batch devices.json --duration 120
@@ -543,10 +545,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    # Device selection
-    device_group = parser.add_mutually_exclusive_group(required=True)
-    device_group.add_argument('--device',
-                             help='Device identifier for logging')
+    # Device selection (optional - only used for logging/identification)
+    device_group = parser.add_mutually_exclusive_group()
+    device_group.add_argument('--device', default='local_device',
+                             help='Device identifier for logging (default: local_device)')
     device_group.add_argument('--batch',
                              help='Batch file (JSON) with device list')
 
