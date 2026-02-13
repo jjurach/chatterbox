@@ -447,6 +447,14 @@ font:
     size: 30
     glyphsets:
       - ${font_glyphsets}
+  - file:
+      type: gfonts
+      family: ${font_family}
+      weight: 700
+    id: font_state_letter
+    size: 120
+    glyphsets:
+      - ${font_glyphsets}
 
 text_sensor:
   - id: text_request
@@ -486,6 +494,22 @@ color:
     hex: "26ed3a"
   - id: paused_timer_color
     hex: "3b89e3"
+  # State machine letter colors
+  - id: state_uninitialized_bg
+    hex: "FFA500"  # Orange - N
+  - id: state_idle_bg
+    hex: "800080"  # Purple - H
+  - id: state_listening_bg
+    hex: "0000FF"  # Blue - S
+  - id: state_thinking_bg
+    hex: "FF0000"  # Red - A
+  - id: state_replying_bg
+    hex: "FFFF00"  # Yellow - W
+  - id: state_error_bg
+    hex: "008000"  # Green - P
+  # Text color for letters (white for good contrast)
+  - id: state_letter_text
+    hex: "FFFFFF"
 
 spi:
   - id: spi_bus
@@ -510,19 +534,25 @@ display:
     pages:
       - id: uninitialized_page
         lambda: |-
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_initializing), ImageAlign::CENTER);
+          it.fill(id(state_uninitialized_bg));
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "N");
       - id: idle_page
         lambda: |-
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_idle), ImageAlign::CENTER);
+          it.fill(id(state_idle_bg));
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "H");
       - id: listening_page
         lambda: |-
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_listening), ImageAlign::CENTER);
+          it.fill(id(state_listening_bg));
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "S");
       - id: thinking_page
         lambda: |-
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_thinking), ImageAlign::CENTER);
+          it.fill(id(state_thinking_bg));
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "A");
       - id: replying_page
         lambda: |-
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_replying), ImageAlign::CENTER);
+          it.fill(id(state_replying_bg));
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "W");
       - id: error_page
         lambda: |-
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_error), ImageAlign::CENTER);
+          it.fill(id(state_error_bg));
+          it.printf(it.get_width() / 2, it.get_height() / 2, id(font_state_letter), id(state_letter_text), TextAlign::CENTER, "P");
