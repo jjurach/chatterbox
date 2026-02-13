@@ -100,7 +100,7 @@ def generate_firmware(config_path: Optional[str] = None) -> Optional[str]:
         raise OTADeployError(f"Config file not found: {config_path}")
 
     print(f"\n🔨 Generating firmware from {config_path}")
-    print("This may take a few minutes...")
+    print("   ⏳ Compiling... (this may take a few minutes)")
 
     try:
         result = subprocess.run(
@@ -110,28 +110,81 @@ def generate_firmware(config_path: Optional[str] = None) -> Optional[str]:
             timeout=600  # 10 minute timeout
         )
 
+        # Filter output to hide verbose compilation lines but show important ones
+        if result.stdout:
+            for line in result.stdout.split('\n'):
+                # Skip common verbose lines
+                if any(skip in line for skip in [
+                    'Compiling',
+                    'Linking',
+                    'ar ',
+                    'cc1plus',
+                    'Scanning',
+                    'Building',
+                    'Generating',
+                    'HARDWARE_SPI',
+                    'esphome.common',
+                ]):
+                    continue
+                # Show important lines
+                if any(keyword in line for keyword in [
+                    'INFO',
+                    'SUCCESS',
+                    'ERROR',
+                    'WARNING',
+                    'Running',
+                    'Done',
+                ]):
+                    print(f"   {line.strip()}")
+
         if result.returncode != 0:
+            # Show error details
+            error_output = result.stderr if result.stderr else result.stdout
             raise OTADeployError(
-                f"ESPHome compilation failed:\n{result.stderr}"
+                f"ESPHome compilation failed. Check firmware/voice-assistant.yaml for errors.\n"
+                f"Last output:\n{error_output[-500:]}"  # Last 500 chars
             )
 
         # Find the generated binary
         # ESPHome builds to .esphome/build/<device_name>/.pioenvs/<device_name>/firmware.bin
-        build_dir = Path(__file__).parent.parent / ".esphome" / "build"
+        # Or sometimes: .esphome/build/esp32-s3-box-3/.pioenvs/esp32-s3-box-3/firmware.bin
+        config_stem = config_path.stem  # e.g., "voice-assistant"
 
-        if not build_dir.exists():
-            raise OTADeployError(f"Build directory not found: {build_dir}")
+        # Search in multiple possible locations
+        search_paths = [
+            Path(__file__).parent.parent / ".esphome" / "build" / "*" / ".pioenvs" / "*" / "firmware.bin",
+            Path(__file__).parent.parent / ".esphome" / "build" / "**" / "firmware.bin",
+        ]
 
-        # Search for firmware.bin files
-        firmware_files = list(build_dir.glob("*/.pioenvs/*/firmware.bin"))
+        firmware_files = []
+        for pattern in search_paths:
+            firmware_files.extend(Path(pattern.parts[0]).glob(str(Path(*pattern.parts[1:]))))
+            if firmware_files:
+                break
 
         if not firmware_files:
-            raise OTADeployError("No firmware.bin found in build directory")
+            build_dir = Path(__file__).parent.parent / ".esphome" / "build"
+            if build_dir.exists():
+                # List what's actually in the build directory for debugging
+                contents = list(build_dir.glob("*"))
+                contents_str = "\n   ".join([str(c.relative_to(build_dir)) for c in contents])
+                raise OTADeployError(
+                    f"No firmware.bin found in build directory.\n"
+                    f"Build directory contents:\n   {contents_str}\n"
+                    f"Ensure firmware/voice-assistant.yaml is valid and ESPHome can compile it."
+                )
+            else:
+                raise OTADeployError(
+                    f"Build directory not found: {build_dir}\n"
+                    f"ESPHome may not have completed successfully."
+                )
 
         # Use the most recently modified one
         firmware_path = max(firmware_files, key=lambda p: p.stat().st_mtime)
 
-        print(f"✅ Firmware generated: {firmware_path}")
+        print(f"   ✅ Firmware generated successfully")
+        print(f"   📦 Size: {firmware_path.stat().st_size / 1024 / 1024:.1f} MB")
+        print(f"   📁 Path: {firmware_path}")
         return str(firmware_path)
 
     except subprocess.TimeoutExpired:
@@ -140,6 +193,8 @@ def generate_firmware(config_path: Optional[str] = None) -> Optional[str]:
         raise OTADeployError(
             "ESPHome not found. Install with: pip install esphome"
         )
+    except OTADeployError:
+        raise
     except Exception as e:
         raise OTADeployError(f"Firmware generation failed: {e}")
 
