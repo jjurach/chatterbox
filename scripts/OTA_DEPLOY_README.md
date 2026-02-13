@@ -31,12 +31,27 @@ chmod +x scripts/ota_deploy.py
 
 ## Usage
 
+### Quick Start (Auto-Generate & Deploy)
+
+Deploy with automatic firmware generation and credentials from secrets.yaml:
+
+```bash
+# Auto-generate firmware and deploy to device from secrets.yaml
+python scripts/ota_deploy.py
+
+# Auto-generate and deploy to specific device
+python scripts/ota_deploy.py --device esp32.local
+
+# Auto-generate and deploy with explicit password
+python scripts/ota_deploy.py --device esp32.local --password mypassword
+```
+
 ### Single Device Deployment
 
 Deploy to a single device by IP address or hostname:
 
 ```bash
-# Using IP address
+# Using IP address with existing binary
 python scripts/ota_deploy.py --device 192.168.1.100 --binary firmware.bin
 
 # Using mDNS hostname (e.g., esp32.local)
@@ -44,6 +59,9 @@ python scripts/ota_deploy.py --device esp32.local --binary firmware.bin
 
 # With password authentication
 python scripts/ota_deploy.py --device 192.168.1.100 --binary firmware.bin --password mypassword
+
+# Let tool read password from secrets.yaml
+python scripts/ota_deploy.py --device esp32.local --binary firmware.bin
 ```
 
 ### Batch Deployment
@@ -85,6 +103,53 @@ esp32-2.local,
 192.168.1.102,another_password
 ```
 
+### Automatic Firmware Generation
+
+The tool can automatically compile firmware using ESPHome:
+
+```bash
+# Auto-generate firmware from default config (firmware/voice-assistant.yaml)
+python scripts/ota_deploy.py --device esp32.local
+
+# Auto-generate from custom config
+python scripts/ota_deploy.py --device esp32.local --config custom_config.yaml
+
+# Mix auto-generation with other options
+python scripts/ota_deploy.py \
+  --device esp32.local \
+  --config firmware/voice-assistant.yaml \
+  --password mypassword
+```
+
+**How it works:**
+1. ESPHome compiles the configuration to firmware binary
+2. Firmware is located at `.esphome/build/<device>/.pioenvs/<device>/firmware.bin`
+3. Deployment proceeds automatically
+
+### Credentials from Secrets
+
+The tool can read credentials from `firmware/secrets.yaml`:
+
+```bash
+# Read both device and password from secrets.yaml
+python scripts/ota_deploy.py
+
+# Read password but specify device explicitly
+python scripts/ota_deploy.py --device esp32.local
+
+# Override secrets with explicit password
+python scripts/ota_deploy.py --password explicit_password
+```
+
+**Configure secrets.yaml:**
+
+```yaml
+wifi_ssid: "Your_WiFi"
+wifi_password: "Your_WiFi_Password"
+ota_password: "your_ota_password"
+ota_device: "esp32.local"  # Optional: device for auto-deployment
+```
+
 ### Advanced Options
 
 ```bash
@@ -96,6 +161,9 @@ python scripts/ota_deploy.py --device 192.168.1.100 --binary firmware.bin --retr
 
 # Custom timeout in seconds (default: 60)
 python scripts/ota_deploy.py --device 192.168.1.100 --binary firmware.bin --timeout 120
+
+# Custom secrets file location
+python scripts/ota_deploy.py --secrets /path/to/secrets.yaml
 
 # Combine options
 python scripts/ota_deploy.py \

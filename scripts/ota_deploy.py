@@ -4,9 +4,13 @@ OTA Deployment Tool for Chatterbox Devices
 
 Deploys firmware binaries to ESP32 devices over Wi-Fi using the ESPHome OTA protocol.
 Supports single device and batch deployments with progress indication and error handling.
+Can auto-generate firmware and read credentials from secrets.yaml.
 
 Usage:
-    # Deploy to single device
+    # Auto-generate firmware and deploy (reads IP & password from secrets.yaml)
+    python ota_deploy.py
+
+    # Deploy to single device with specific binary
     python ota_deploy.py --device 192.168.1.100 --binary firmware.bin
 
     # Deploy to multiple devices with password
@@ -14,6 +18,9 @@ Usage:
 
     # Deploy with custom port and retry logic
     python ota_deploy.py --device esp32.local --binary firmware.bin --port 8266 --retries 3
+
+    # Auto-generate and deploy to specific device
+    python ota_deploy.py --device esp32.local
 """
 
 import argparse
@@ -21,6 +28,7 @@ import json
 import hashlib
 import sys
 import time
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import socket
@@ -33,10 +41,107 @@ except ImportError:
     print("Error: requests library not found. Install with: pip install requests")
     sys.exit(1)
 
+try:
+    import yaml
+except ImportError:
+    print("Error: pyyaml library not found. Install with: pip install pyyaml")
+    sys.exit(1)
+
 
 class OTADeployError(Exception):
     """Base exception for OTA deployment errors."""
     pass
+
+
+def read_secrets_yaml(key: str, secrets_path: Optional[str] = None) -> Optional[str]:
+    """
+    Read a value from secrets.yaml file.
+
+    Args:
+        key: The key to read (e.g., 'ota_password')
+        secrets_path: Optional path to secrets file (default: firmware/secrets.yaml)
+
+    Returns:
+        The value if found, None otherwise
+    """
+    if secrets_path is None:
+        secrets_path = Path(__file__).parent.parent / "firmware" / "secrets.yaml"
+    else:
+        secrets_path = Path(secrets_path)
+
+    if not secrets_path.exists():
+        return None
+
+    try:
+        with open(secrets_path, 'r') as f:
+            secrets = yaml.safe_load(f) or {}
+            return secrets.get(key)
+    except Exception as e:
+        print(f"Warning: Failed to read secrets file: {e}")
+        return None
+
+
+def generate_firmware(config_path: Optional[str] = None) -> Optional[str]:
+    """
+    Generate firmware binary using ESPHome.
+
+    Args:
+        config_path: Path to YAML config (default: firmware/voice-assistant.yaml)
+
+    Returns:
+        Path to generated firmware binary, None if generation fails
+    """
+    if config_path is None:
+        config_path = Path(__file__).parent.parent / "firmware" / "voice-assistant.yaml"
+    else:
+        config_path = Path(config_path)
+
+    if not config_path.exists():
+        raise OTADeployError(f"Config file not found: {config_path}")
+
+    print(f"\n🔨 Generating firmware from {config_path}")
+    print("This may take a few minutes...")
+
+    try:
+        result = subprocess.run(
+            ["esphome", "compile", str(config_path)],
+            capture_output=True,
+            text=True,
+            timeout=600  # 10 minute timeout
+        )
+
+        if result.returncode != 0:
+            raise OTADeployError(
+                f"ESPHome compilation failed:\n{result.stderr}"
+            )
+
+        # Find the generated binary
+        # ESPHome builds to .esphome/build/<device_name>/.pioenvs/<device_name>/firmware.bin
+        build_dir = Path(__file__).parent.parent / ".esphome" / "build"
+
+        if not build_dir.exists():
+            raise OTADeployError(f"Build directory not found: {build_dir}")
+
+        # Search for firmware.bin files
+        firmware_files = list(build_dir.glob("*/.pioenvs/*/firmware.bin"))
+
+        if not firmware_files:
+            raise OTADeployError("No firmware.bin found in build directory")
+
+        # Use the most recently modified one
+        firmware_path = max(firmware_files, key=lambda p: p.stat().st_mtime)
+
+        print(f"✅ Firmware generated: {firmware_path}")
+        return str(firmware_path)
+
+    except subprocess.TimeoutExpired:
+        raise OTADeployError("Firmware compilation timed out (>10 minutes)")
+    except FileNotFoundError:
+        raise OTADeployError(
+            "ESPHome not found. Install with: pip install esphome"
+        )
+    except Exception as e:
+        raise OTADeployError(f"Firmware generation failed: {e}")
 
 
 class OTADeployer:
@@ -336,43 +441,70 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    # Required arguments
-    parser.add_argument('--binary', required=True,
-                       help='Path to firmware binary file')
+    # Optional binary argument - will be auto-generated if not provided
+    parser.add_argument('--binary',
+                       help='Path to firmware binary file (auto-generated if not provided)')
+    parser.add_argument('--config',
+                       help='Path to ESPHome config (default: firmware/voice-assistant.yaml)')
 
-    # Device selection (mutually exclusive)
-    device_group = parser.add_mutually_exclusive_group(required=True)
+    # Device selection (mutually exclusive, but both optional now)
+    device_group = parser.add_mutually_exclusive_group()
     device_group.add_argument('--device',
-                             help='Single device IP address or hostname')
+                             help='Single device IP address or hostname (read from secrets.yaml if not provided)')
     device_group.add_argument('--batch',
                              help='Batch file (JSON or CSV) with device list')
 
     # Optional arguments
     parser.add_argument('--password',
-                       help='OTA password for authentication')
+                       help='OTA password for authentication (read from secrets.yaml if not provided)')
     parser.add_argument('--port', type=int, default=OTADeployer.DEFAULT_PORT,
                        help=f'OTA port (default: {OTADeployer.DEFAULT_PORT})')
     parser.add_argument('--retries', type=int, default=OTADeployer.DEFAULT_RETRIES,
                        help=f'Number of retry attempts (default: {OTADeployer.DEFAULT_RETRIES})')
     parser.add_argument('--timeout', type=int, default=OTADeployer.DEFAULT_TIMEOUT,
                        help=f'Connection timeout in seconds (default: {OTADeployer.DEFAULT_TIMEOUT})')
+    parser.add_argument('--secrets',
+                       help='Path to secrets.yaml file (default: firmware/secrets.yaml)')
 
     args = parser.parse_args()
 
     try:
+        # Generate firmware if not provided
+        binary_path = args.binary
+        if not binary_path:
+            binary_path = generate_firmware(args.config)
+
+        # Get OTA password from secrets if not provided
+        password = args.password
+        if not password:
+            password = read_secrets_yaml('ota_password', args.secrets)
+            if password:
+                print(f"✅ Read OTA password from secrets.yaml")
+            else:
+                print("⚠️  No OTA password provided and none found in secrets.yaml")
+
+        # Get device from secrets if not provided and no batch file
+        device = args.device
+        if not device and not args.batch:
+            device = read_secrets_yaml('ota_device', args.secrets)
+            if device:
+                print(f"✅ Read device address from secrets.yaml: {device}")
+            else:
+                print("ℹ️  No device specified and none found in secrets.yaml")
+
         # Create deployer
         deployer = OTADeployer(
-            binary_path=args.binary,
-            password=args.password,
+            binary_path=binary_path,
+            password=password,
             port=args.port,
             retries=args.retries,
             timeout=args.timeout
         )
 
         # Deploy based on mode
-        if args.device:
+        if device:
             # Single device deployment
-            success = deployer.deploy(args.device)
+            success = deployer.deploy(device)
             sys.exit(0 if success else 1)
 
         elif args.batch:
@@ -387,6 +519,10 @@ def main():
             # Exit with success only if all devices succeeded
             success_count = sum(1 for v in results.values() if v)
             sys.exit(0 if success_count == len(devices) else 1)
+
+        else:
+            # No device or batch specified
+            parser.error("Either --device, --batch, or ota_device in secrets.yaml must be specified")
 
     except OTADeployError as e:
         print(f"\n❌ Error: {e}", file=sys.stderr)
