@@ -844,33 +844,6 @@ project-root/
     └── changes/                       # Change documentation
 ```
 
-## Project Integration
-
-This Agent Kernel is integrated into the **Cackle (Chatterbox)** project with the following extensions:
-
-### Entry Points
-
-- **[AGENTS.md](../../AGENTS.md)** - Main agent instructions combining Agent Kernel workflows with project-specific requirements
-- **[docs/definition-of-done.md](../definition-of-done.md)** - Project-specific DoD extending Agent Kernel universal and language DoD
-- **[docs/workflows.md](../workflows.md)** - Project-specific development workflows
-
-### Project-Specific Extensions
-
-The project adds domain-specific requirements for:
-
-**Voice Assistant:**
-- Audio processing integrity
-- Wyoming protocol compliance
-- STT/TTS service integration
-
-See [docs/definition-of-done.md](../definition-of-done.md) for complete project-specific requirements.
-
-### Sync Status
-
-- **Bootstrap sync:** Completed 2026-02-01
-- **Last integration update:** 2026-02-01
-- **Sections synchronized:** MANDATORY-READING, CORE-WORKFLOW, PRINCIPLES, PYTHON-DOD
-
 ## Version
 
 Agent Kernel v1.0 - January 2026
