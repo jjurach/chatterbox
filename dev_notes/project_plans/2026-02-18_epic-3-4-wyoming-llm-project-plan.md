@@ -113,18 +113,21 @@ Validate Piper-based TTS endpoint via Wyoming protocol.
 4. Home Assistant relays to Box 3B for playback
 
 ### Goal 6: Integration Testing Infrastructure
-**Status:** Not Started
+**Status:** Substantially Complete (2026-02-19); pytest-asyncio fix pending
 
 Establish automated testing framework for Wyoming protocol.
 
 **Acceptance Criteria:**
-- [ ] Script to generate wave files from text statements
-- [ ] Automated test suite for all Wyoming endpoints
-- [ ] Round-trip testing (text → TTS → STT → text validation)
-- [ ] Error handling and edge case coverage
-- [ ] Performance and latency measurements
+- [x] Script to generate wave files from text statements
+- [x] Automated test suite for all Wyoming endpoints
+- [x] Round-trip testing (text → TTS → STT → text validation)
+- [x] Error handling and edge case coverage
+- [x] Performance and latency measurements
 - [ ] Automated validation reports
 - [ ] CI/CD integration capability
+
+**Known Blocker — pytest-asyncio Conflict:**
+The chatterbox venv has `pytest-asyncio 1.3.0` installed alongside `anyio 4.12.1`, and `pyproject.toml` sets `asyncio_mode = "auto"`. This causes `pytest-asyncio` to hijack all async test functions before anyio's plugin runs them, creating event loop conflicts that deadlock the integration tests. **Integration tests currently only work when run with `/home/phaedrus/hentown/tools/venv/bin/pytest`** (which lacks `pytest-asyncio`). Fix: either remove `pytest-asyncio` or set `asyncio_mode = "strict"`. This should be addressed in Task 3.9 or as a separate fix bead.
 
 ## Epic 3 Task Breakdown
 
@@ -394,7 +397,8 @@ Use emulator to validate Piper-based TTS service via Wyoming protocol.
 
 ### Task 3.8: Round-Trip Integration Testing
 **Priority:** P1 (High)
-**Owner:** TBD
+**Status:** Completed 2026-02-19
+**Owner:** Claude Code
 **Depends On:** Task 3.6, Task 3.7
 **Estimated Effort:** 6 hours
 
@@ -430,10 +434,50 @@ Validate full round-trip conversation flows through Wyoming protocol.
 
 ---
 
+### Task 3.8.1: Fix pytest-asyncio Conflict, Revalidate Tests, and Add Long-Form STT Test
+**Priority:** P0 (Critical — blocks CI/CD and validates test infrastructure)
+**Owner:** TBD
+**Depends On:** Task 3.8
+**Estimated Effort:** 4 hours
+
+Fix the pytest-asyncio / anyio event loop conflict that prevents integration tests from running in the chatterbox venv. Then revalidate the entire integration test suite. Finally, add a challenging long-form STT test using a ~60-second WAV recording of a famous speech excerpt, paired with a question about its origin and speaker.
+
+**Subtasks:**
+- Set `asyncio_mode = "strict"` in `pyproject.toml` (prevents pytest-asyncio from hijacking anyio tests)
+- Verify all integration tests pass with BOTH pytest binaries (chatterbox venv and tools venv)
+- Revalidate: `test_whisper_stt.py` (5 tests), `test_piper_tts.py` (7 tests), `test_round_trip.py` (6 tests)
+- Generate a ~60-second WAV file containing a famous speech excerpt (e.g. MLK "I Have a Dream", JFK inaugural, Gettysburg Address) using Piper TTS
+- Add corpus entry with expected transcription and a follow-up question about the speech's origin/speaker
+- Add integration test that validates STT transcription of the long-form recording
+- Measure latency and accuracy for the long-form test (expected: longer transcription time, WER may need relaxed tolerance)
+- Verify that the `tiny` model is only used in test defaults — production CLI defaults to `small.en` (confirmed)
+
+**Technical Notes:**
+- Root cause: `pyproject.toml` sets `asyncio_mode = "auto"` + `pytest-asyncio 1.3.0` installed → pytest-asyncio hijacks `@pytest.mark.anyio` tests → server and client run on different event loops → deadlock
+- Fix: change `asyncio_mode = "auto"` to `asyncio_mode = "strict"` — this makes pytest-asyncio only handle explicitly `@pytest.mark.asyncio`-decorated tests, leaving `@pytest.mark.anyio` tests to anyio's plugin
+- The 9 pre-existing unit test failures in `tests/unit/test_runner.py` may also be caused by this conflict — investigate
+- Test model remains `tiny` (via `CHATTERBOX_STT_MODEL` env var, default `"tiny"`) for speed; production default is `small.en`
+
+**Deliverables:**
+- Fixed `pyproject.toml` with `asyncio_mode = "strict"`
+- ~60-second WAV file in `tests/corpus/` with corpus.json entry
+- Updated integration tests with long-form STT validation
+- Test run report showing all tests pass with chatterbox venv pytest
+
+**Definition of Done:**
+- `asyncio_mode = "strict"` set in `pyproject.toml`
+- All integration tests pass with `/home/phaedrus/hentown/modules/chatterbox/venv/bin/pytest`
+- All integration tests still pass with `/home/phaedrus/hentown/tools/venv/bin/pytest`
+- Long-form (~60s) WAV transcription test passes
+- No regressions in existing test suites
+- Change doc written
+
+---
+
 ### Task 3.9: Create Epic 3 Documentation Package
 **Priority:** P2 (Medium)
 **Owner:** TBD
-**Depends On:** Task 3.6, Task 3.7, Task 3.8
+**Depends On:** Task 3.6, Task 3.7, Task 3.8, Task 3.8.1
 **Estimated Effort:** 4 hours
 
 Consolidate all Epic 3 documentation and create comprehensive guide.
