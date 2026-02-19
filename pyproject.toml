@@ -74,6 +74,7 @@ chatterbox-server = "chatterbox.main:cli_main"
 chatterbox-wyoming-client = "demos.wyoming_client_test:main"
 chatterbox-test-agent = "demos.direct_agent:main"
 wyoming-tester = "wyoming_tester.cli:main"
+ha-emulator = "ha_emulator.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/chatterbox"
@@ -81,12 +82,13 @@ Repository = "https://github.com/yourusername/chatterbox.git"
 Issues = "https://github.com/yourusername/chatterbox/issues"
 
 [tool.setuptools]
-packages = ["chatterbox", "chatterbox.audio", "chatterbox.config", "chatterbox.services", "chatterbox.tools", "chatterbox.tools.builtin", "chatterbox.adapters", "chatterbox.adapters.wyoming", "chatterbox.adapters.rest", "wyoming_tester", "demos", "tests"]
+packages = ["chatterbox", "chatterbox.audio", "chatterbox.config", "chatterbox.services", "chatterbox.tools", "chatterbox.tools.builtin", "chatterbox.adapters", "chatterbox.adapters.wyoming", "chatterbox.adapters.rest", "wyoming_tester", "ha_emulator", "demos", "tests"]
 
 [tool.setuptools.package-dir]
 "" = "."
 chatterbox = "src/chatterbox"
 wyoming_tester = "src/wyoming_tester"
+ha_emulator = "src/ha_emulator"
 
 [tool.black]
 line-length = 88
