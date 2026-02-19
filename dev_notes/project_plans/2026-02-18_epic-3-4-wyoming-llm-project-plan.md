@@ -352,6 +352,7 @@ Use emulator to validate Whisper-based STT service via Wyoming protocol.
 ---
 
 ### Task 3.7: Validate Piper TTS Service
+**Status:** Completed 2026-02-19
 **Priority:** P0 (Critical)
 **Owner:** TBD
 **Depends On:** Task 3.5

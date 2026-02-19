@@ -237,7 +237,13 @@ class VoiceAssistantServer(AsyncEventHandler):
             logger.debug("Synthesis requested")
             if self.debug:
                 logger.info(f"[{timestamp}] [WYOMING] Synthesize event received")
-            text = getattr(event, 'text', '')
+            # Deserialize to Synthesize to reliably access .text (generic Event
+            # stores text in event.data, not as a direct attribute).
+            try:
+                synth_event = Synthesize.from_event(event) if not isinstance(event, Synthesize) else event
+                text = synth_event.text or ''
+            except Exception:
+                text = (event.data or {}).get('text', '') if hasattr(event, 'data') else ''
             if text:
                 await self._handle_synthesize(text)
             return True
@@ -365,7 +371,7 @@ class VoiceAssistantServer(AsyncEventHandler):
             chunk_size = 4096
             for i in range(0, len(audio_bytes), chunk_size):
                 chunk = audio_bytes[i:i + chunk_size]
-                audio_chunk = AudioChunk(audio=chunk)
+                audio_chunk = AudioChunk(rate=22050, width=2, channels=1, audio=chunk)
                 await self.write_event(audio_chunk.event())
                 logger.debug(f"Sent AudioChunk: {len(chunk)} bytes ({i//chunk_size + 1} chunks)")
 
