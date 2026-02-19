@@ -140,7 +140,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-asyncio_mode = "auto"
+asyncio_mode = "strict"
 addopts = "-v --strict-markers --disable-warnings"
 markers = [
     "integration: requires live Wyoming server (slow)",

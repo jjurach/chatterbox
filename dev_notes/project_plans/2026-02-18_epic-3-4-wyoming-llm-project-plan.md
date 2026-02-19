@@ -113,7 +113,7 @@ Validate Piper-based TTS endpoint via Wyoming protocol.
 4. Home Assistant relays to Box 3B for playback
 
 ### Goal 6: Integration Testing Infrastructure
-**Status:** Substantially Complete (2026-02-19); pytest-asyncio fix pending
+**Status:** Substantially Complete (2026-02-19); pytest-asyncio fixed (Task 3.8.1)
 
 Establish automated testing framework for Wyoming protocol.
 
@@ -126,8 +126,8 @@ Establish automated testing framework for Wyoming protocol.
 - [ ] Automated validation reports
 - [ ] CI/CD integration capability
 
-**Known Blocker — pytest-asyncio Conflict:**
-The chatterbox venv has `pytest-asyncio 1.3.0` installed alongside `anyio 4.12.1`, and `pyproject.toml` sets `asyncio_mode = "auto"`. This causes `pytest-asyncio` to hijack all async test functions before anyio's plugin runs them, creating event loop conflicts that deadlock the integration tests. **Integration tests currently only work when run with `/home/phaedrus/hentown/tools/venv/bin/pytest`** (which lacks `pytest-asyncio`). Fix: either remove `pytest-asyncio` or set `asyncio_mode = "strict"`. This should be addressed in Task 3.9 or as a separate fix bead.
+**Resolved — pytest-asyncio Conflict (Task 3.8.1, 2026-02-19):**
+Fixed by setting `asyncio_mode = "strict"` in `pyproject.toml`. Integration tests now pass with both `/home/phaedrus/hentown/modules/chatterbox/venv/bin/pytest` and `/home/phaedrus/hentown/tools/venv/bin/pytest`. Unit test failures (9 in test_runner.py) also resolved.
 
 ## Epic 3 Task Breakdown
 
@@ -436,6 +436,7 @@ Validate full round-trip conversation flows through Wyoming protocol.
 
 ### Task 3.8.1: Fix pytest-asyncio Conflict, Revalidate Tests, and Add Long-Form STT Test
 **Priority:** P0 (Critical — blocks CI/CD and validates test infrastructure)
+**Status:** Completed (2026-02-19)
 **Owner:** TBD
 **Depends On:** Task 3.8
 **Estimated Effort:** 4 hours

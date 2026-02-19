@@ -103,5 +103,12 @@
     "description": "Compound home control command with parameter",
     "category": "home_control",
     "duration_ms": 2287
+  },
+  {
+    "file": "test_016_gettysburg_address.wav",
+    "expected": "four score and seven years ago our fathers brought forth on this continent a new nation conceived in liberty and dedicated to the proposition that all men are created equal now we are engaged in a great civil war testing whether that nation or any nation so conceived and so dedicated can long endure we are met on a great battle field of that war we have come to dedicate a portion of that field as a final resting place for those who here gave their lives that that nation might live it is altogether fitting and proper that we should do this but in a larger sense we cannot dedicate we cannot consecrate we cannot hallow this ground the brave men living and dead who struggled here have consecrated it far above our poor power to add or detract",
+    "description": "Long-form speech: Gettysburg Address opening (Lincoln, 1863) — ~49 seconds, 140 words",
+    "category": "long_form",
+    "duration_ms": 48819
   }
 ]

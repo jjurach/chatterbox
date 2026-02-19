@@ -414,3 +414,67 @@ async def test_stt_connection_refused(tmp_path: Path) -> None:
     assert result.success is False
     assert result.error is not None
     assert "Connection failed" in result.error
+
+
+# ---------------------------------------------------------------------------
+# Test: long-form STT (Gettysburg Address, ~49 s)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_stt_long_form_gettysburg(
+    whisper_server: Tuple[str, int],
+) -> None:
+    """Transcribing the ~49-second Gettysburg Address opening must succeed.
+
+    This validates that the Wyoming STT service handles long-form audio
+    without timing out, and that Whisper's transcription accuracy is
+    acceptable (WER ≤ 0.35, relaxed vs. short utterances due to the
+    increased difficulty of long continuous speech).
+
+    The speech is Lincoln's Gettysburg Address opening (1863), generated
+    via Piper TTS (en_US-ljspeech-high), stored as test_016_gettysburg_address.wav.
+
+    Expected latency: up to 300 seconds on CPU (Whisper tiny processes ~5× speed).
+    """
+    host, port = whisper_server
+
+    wav_path = _CORPUS_DIR / "test_016_gettysburg_address.wav"
+    assert wav_path.exists(), f"Long-form WAV not found: {wav_path}"
+
+    # Long-form transcription can take significantly more time on CPU.
+    _LONG_FORM_TIMEOUT = float(os.environ.get("CHATTERBOX_LONG_FORM_TIMEOUT", "300"))
+    _LONG_FORM_WER_TOLERANCE = 0.35  # relaxed vs. short utterances
+
+    # Load expected text from corpus.json
+    loader = CorpusLoader(_CORPUS_DIR)
+    entries = loader.load_all()
+    gettysburg_entry = next(
+        (e for e in entries if e.wav_path.name == "test_016_gettysburg_address.wav"),
+        None,
+    )
+    assert gettysburg_entry is not None, "Gettysburg entry missing from corpus.json"
+
+    result = await _run_stt_audio_only(
+        host, port, wav_path, timeout=_LONG_FORM_TIMEOUT
+    )
+
+    assert result.success, f"Long-form STT failed: {result.error}"
+
+    print(
+        f"\nLong-form STT latency: {result.latency_ms:.0f} ms  "
+        f"transcript_len={len(result.transcript.split())}"
+    )
+
+    validator = ResultValidator()
+    vr = validator.validate_transcript(
+        result.transcript,
+        gettysburg_entry.expected_text,
+        tolerance=_LONG_FORM_WER_TOLERANCE,
+    )
+    assert vr.passed, (
+        f"Long-form STT accuracy too low — {vr.details}\n"
+        f"  transcript: {result.transcript!r}\n"
+        f"  expected:   {gettysburg_entry.expected_text!r}"
+    )
