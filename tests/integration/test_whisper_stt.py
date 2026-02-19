@@ -151,6 +151,9 @@ async def _run_stt_audio_only(
             if event.type == "transcript":
                 transcript_text = (event.data or {}).get("text", "")
                 break
+        
+        # Give the server a moment to finish its write before we close the socket
+        await asyncio.sleep(0.1)
 
         latency_ms = (time.monotonic() - stop_time) * 1000.0
         return STTResult(

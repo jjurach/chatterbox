@@ -110,6 +110,15 @@ class VoiceAssistantServer(AsyncEventHandler):
         if debug:
             logger.info("Debug mode enabled")
 
+    async def run(self) -> None:
+        """Run the event loop for this connection."""
+        try:
+            await super().run()
+        except (BrokenPipeError, ConnectionResetError):
+            logger.info("Client disconnected (connection error)")
+        except Exception as e:
+            logger.error(f"Error in connection handler: {e}", exc_info=True)
+
     async def handle_event(self, event: Event) -> bool:
         """Handle incoming Wyoming protocol events.
 
@@ -180,6 +189,8 @@ class VoiceAssistantServer(AsyncEventHandler):
                         # Convert Transcript wrapper to Event for transmission
                         event_to_send = response_event.event()
                         await self.write_event(event_to_send)
+                except (BrokenPipeError, ConnectionResetError):
+                    logger.info("Client disconnected during auto-transcription")
                 except Exception as e:
                     logger.error(f"Error in auto-transcription: {e}", exc_info=True)
                 finally:
@@ -194,6 +205,8 @@ class VoiceAssistantServer(AsyncEventHandler):
                         # Convert Transcript wrapper to Event for transmission
                         event_to_send = response_event.event()
                         await self.write_event(event_to_send)
+                except (BrokenPipeError, ConnectionResetError):
+                    logger.info("Client disconnected during auto-transcription")
                 except Exception as e:
                     logger.error(f"Error in auto-transcription: {e}", exc_info=True)
                 finally:
@@ -623,6 +636,8 @@ class WyomingServer:
             logger.info(f"All models loaded. Server is ready to accept connections...")
             await server.run(self.handler_factory)
             logger.info("AsyncServer.run() completed (server shutting down)")
+        except (BrokenPipeError, ConnectionResetError):
+            logger.info("Server stopped due to connection error (harmless in tests)")
         except Exception as e:
             logger.error(f"Failed to run Wyoming server: {e}", exc_info=True)
             raise
