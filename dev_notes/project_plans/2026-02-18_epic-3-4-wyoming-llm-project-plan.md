@@ -1,6 +1,6 @@
 # Epic 3 & 4: Wyoming Protocol and LLM Integration - Project Plan
 
-**Status:** In Planning
+**Status:** Epic 3 Completed (2026-02-19); Epic 4 Not Started
 **Created:** 2026-02-18
 **Specification:** dev_notes/specs/spec-wyoming-protocol-llm-integration-20260218.md
 
@@ -113,7 +113,7 @@ Validate Piper-based TTS endpoint via Wyoming protocol.
 4. Home Assistant relays to Box 3B for playback
 
 ### Goal 6: Integration Testing Infrastructure
-**Status:** Substantially Complete (2026-02-19); pytest-asyncio fixed (Task 3.8.1)
+**Status:** Completed (2026-02-19)
 
 Establish automated testing framework for Wyoming protocol.
 
@@ -123,8 +123,8 @@ Establish automated testing framework for Wyoming protocol.
 - [x] Round-trip testing (text → TTS → STT → text validation)
 - [x] Error handling and edge case coverage
 - [x] Performance and latency measurements
-- [ ] Automated validation reports
-- [ ] CI/CD integration capability
+- [x] Automated validation reports (docs/testing-infrastructure.md; JSON report output from TestRunner)
+- [ ] CI/CD integration capability (deferred — out of scope for Epic 3)
 
 **Resolved — pytest-asyncio Conflict (Task 3.8.1, 2026-02-19):**
 Fixed by setting `asyncio_mode = "strict"` in `pyproject.toml`. Integration tests now pass with both `/home/phaedrus/hentown/modules/chatterbox/venv/bin/pytest` and `/home/phaedrus/hentown/tools/venv/bin/pytest`. Unit test failures (9 in test_runner.py) also resolved.
@@ -477,7 +477,8 @@ Fix the pytest-asyncio / anyio event loop conflict that prevents integration tes
 
 ### Task 3.9: Create Epic 3 Documentation Package
 **Priority:** P2 (Medium)
-**Owner:** TBD
+**Status:** Completed (2026-02-19)
+**Owner:** Claude Code
 **Depends On:** Task 3.6, Task 3.7, Task 3.8, Task 3.8.1
 **Estimated Effort:** 4 hours
 

@@ -300,25 +300,31 @@ Logs to `tmp/chatterbox-server.log`.
 
 ## Related Documentation
 
-- [Testing with Wyoming](testing-wyoming.md) — Server runner + wyoming-tester workflow
+- [Testing Infrastructure](testing-infrastructure.md) — Automated test suite, HAEmulator API, known issues
+- [HA Emulator Architecture](ha-emulator-architecture.md) — Emulator component design and data flows
+- [Testing with Wyoming](testing-wyoming.md) — Manual server runner + wyoming-tester workflow
 - [Architecture](architecture.md) — System component overview
 - [STT/TTS Services](stt_tts_services.md) — Whisper and Piper service details
 - [Adapters](adapters.md) — Wyoming adapter design
 
 ---
 
-## Epic 3 Next Steps
+## Epic 3 Status (as of 2026-02-19)
 
-Based on this research, the following work remains for Epic 3:
+All Epic 3 Wyoming protocol tasks are **complete**. The following work was
+done after the initial research phase:
 
-1. **Task 3.2** — Design Home Assistant emulator architecture (using existing `client.py` as starting point)
-2. **Task 3.3** — Create test wave file corpus (10-15 WAV files via Piper TTS)
-3. **Task 3.4** — Implement Home Assistant emulator core (extend `wyoming_tester` or `client.py`)
-4. **Task 3.5** — Implement validation framework (text comparison, audio capture, reporting)
-5. **Task 3.6** — Validate Whisper STT via Wyoming protocol (fix TTS mock first if combined testing needed)
-6. **Task 3.7** — Validate Piper TTS via Wyoming protocol (**requires fixing the mock TTS stub**)
-7. **Task 3.8** — Round-trip integration testing
+| Task | Deliverable |
+|---|---|
+| 3.2 | `docs/ha-emulator-architecture.md` — emulator design |
+| 3.3 | 16 WAV files in `tests/corpus/` + `corpus.json` |
+| 3.4 | `src/ha_emulator/` — HAEmulator, corpus, CLI |
+| 3.5 | `src/ha_emulator/validator.py`, `runner.py` + unit tests |
+| 3.6 | `tests/integration/test_whisper_stt.py` — 6 integration tests |
+| 3.7 | `tests/integration/test_piper_tts.py` — 7 integration tests |
+| 3.8 | `tests/integration/test_round_trip.py`, `test_end_to_end.py` |
+| 3.8.1 | `asyncio_mode = "strict"` fix; long-form STT test (Gettysburg Address) |
+| 3.9 | `docs/testing-infrastructure.md`, corpus README update (this document) |
 
-**Critical blocker for Task 3.7 and 3.8:** The `PiperTTSService.synthesize()` method
-currently returns mock bytes (`b'\x00' * 160`) because `MockPiperVoice` is used
-instead of a real ONNX model. This must be resolved before TTS validation is possible.
+See [Testing Infrastructure](testing-infrastructure.md) for how to run the
+test suite and interpret results.

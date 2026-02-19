@@ -1,13 +1,16 @@
 # Test Corpus — Wyoming Protocol STT Validation
 
-**Status:** Complete (Task 3.3, 2026-02-19)
+**Status:** Complete (Tasks 3.3 + 3.8.1, 2026-02-19)
 **Related Epic:** Epic 3 - Wyoming Protocol Implementation and Validation
 
 ## Overview
 
-15 WAV files generated with Piper TTS for repeatable, automated validation of the
+16 WAV files generated with Piper TTS for repeatable, automated validation of the
 Chatterbox Wyoming STT service (Whisper-based). Used by the `ha_emulator` test
 harness (Task 3.4).
+
+Files test_001–test_015 cover typical smart-home utterances. File test_016 is a
+~49-second long-form transcription stress test (Gettysburg Address opening).
 
 ## Audio Format
 
@@ -42,6 +45,7 @@ harness (Task 3.4).
 | `test_013_open_garage.wav` | open the garage door | home_control | 1.4s |
 | `test_014_is_anyone_home.wav` | is anyone home | environment | 1.0s |
 | `test_015_bedroom_lights_dim.wav` | turn on the bedroom lights at fifty percent | home_control | 2.3s |
+| `test_016_gettysburg_address.wav` | *(Gettysburg Address opening, 140 words)* | long_form | ~49s |
 
 ## Categories
 
@@ -51,6 +55,7 @@ harness (Task 3.4).
 - **utility** — Timer and scheduling commands
 - **environment** — Indoor conditions queries
 - **edge_case** — Short utterances, long utterances, minimal responses
+- **long_form** — Extended speech recordings (test_016: ~49 s Gettysburg Address)
 
 ## Regenerating the Corpus
 
@@ -82,10 +87,16 @@ for entry in entries:
 
 ## Validation Expectations
 
-Whisper STT should achieve ≥90% word accuracy (WER ≤ 0.10) on all entries.
+Whisper STT should achieve ≥90% word accuracy (WER ≤ 0.10) on all standard
+entries (test_001–test_015). Integration tests use a relaxed tolerance of 0.30
+because the corpus was generated with synthetic TTS audio and the `tiny` model
+has real accuracy limits.
 
 - **Short utterances** (test_007, test_008, test_011): May have slightly lower
   accuracy due to minimal context, but expected to pass.
 - **Long utterance** (test_012): Edge case; may hit latency limits.
 - **Location names** (test_002, test_012): "kansas", "new york city" — Whisper
   typically handles these well.
+- **Long-form** (test_016): ~49 s Gettysburg Address, ~140 words.
+  WER tolerance: 0.30. Expected transcription latency: ~4 s (Whisper tiny on CPU).
+  Integration test: `test_stt_long_form` in `tests/integration/test_whisper_stt.py`.
