@@ -142,6 +142,9 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
 addopts = "-v --strict-markers --disable-warnings"
+markers = [
+    "integration: requires live Wyoming server (slow)",
+]
 # Note: Warnings are disabled because:
 # 1. Pydantic class-based config → FIXED (using ConfigDict instead)
 # 2. Wyoming audioop deprecation → Not our code (Wyoming library)
