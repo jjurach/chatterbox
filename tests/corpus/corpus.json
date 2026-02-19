@@ -1,0 +1,107 @@
+[
+  {
+    "file": "test_001_turn_on_lights.wav",
+    "expected": "turn on the lights",
+    "description": "Simple home control command",
+    "category": "home_control",
+    "duration_ms": 1103
+  },
+  {
+    "file": "test_002_weather_kansas.wav",
+    "expected": "what is the weather in kansas",
+    "description": "Weather query with location",
+    "category": "weather",
+    "duration_ms": 1800
+  },
+  {
+    "file": "test_003_turn_off_lights.wav",
+    "expected": "turn off the lights",
+    "description": "Simple home control command (off variant)",
+    "category": "home_control",
+    "duration_ms": 1300
+  },
+  {
+    "file": "test_004_play_music.wav",
+    "expected": "play some music",
+    "description": "Media playback command",
+    "category": "media",
+    "duration_ms": 1080
+  },
+  {
+    "file": "test_005_weather_tomorrow.wav",
+    "expected": "what will the weather be like tomorrow",
+    "description": "Forecast weather query",
+    "category": "weather",
+    "duration_ms": 1753
+  },
+  {
+    "file": "test_006_set_timer.wav",
+    "expected": "set a timer for ten minutes",
+    "description": "Timer/utility command",
+    "category": "utility",
+    "duration_ms": 1730
+  },
+  {
+    "file": "test_007_short_yes.wav",
+    "expected": "yes",
+    "description": "Minimal single-word affirmative",
+    "category": "edge_case",
+    "duration_ms": 499
+  },
+  {
+    "file": "test_008_short_no.wav",
+    "expected": "no",
+    "description": "Minimal single-word negative",
+    "category": "edge_case",
+    "duration_ms": 499
+  },
+  {
+    "file": "test_009_lock_the_door.wav",
+    "expected": "lock the front door",
+    "description": "Security/home control command",
+    "category": "home_control",
+    "duration_ms": 1149
+  },
+  {
+    "file": "test_010_temperature_inside.wav",
+    "expected": "what is the temperature inside",
+    "description": "Indoor environment query",
+    "category": "environment",
+    "duration_ms": 1730
+  },
+  {
+    "file": "test_011_good_morning.wav",
+    "expected": "good morning",
+    "description": "Short greeting utterance",
+    "category": "edge_case",
+    "duration_ms": 708
+  },
+  {
+    "file": "test_012_long_complex.wav",
+    "expected": "what is the current temperature in new york city and will it rain this afternoon",
+    "description": "Long multi-part query (edge case: long utterance)",
+    "category": "edge_case",
+    "duration_ms": 4586
+  },
+  {
+    "file": "test_013_open_garage.wav",
+    "expected": "open the garage door",
+    "description": "Home automation command",
+    "category": "home_control",
+    "duration_ms": 1370
+  },
+  {
+    "file": "test_014_is_anyone_home.wav",
+    "expected": "is anyone home",
+    "description": "Presence query",
+    "category": "environment",
+    "duration_ms": 1033
+  },
+  {
+    "file": "test_015_bedroom_lights_dim.wav",
+    "expected": "turn on the bedroom lights at fifty percent",
+    "description": "Compound home control command with parameter",
+    "category": "home_control",
+    "duration_ms": 2287
+  }
+]

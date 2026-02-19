@@ -58,17 +58,17 @@ Create an emulator that simulates Home Assistant's interactions with Chatterbox 
 - [ ] Automated test execution capability
 
 ### Goal 3: Test Wave File Corpus
-**Status:** Not Started
+**Status:** Completed (2026-02-19)
 
 Create standardized test inputs for repeatable validation.
 
 **Acceptance Criteria:**
-- [ ] 10-15 wave files generated with varied content
-- [ ] Files contain sample statements and questions
-- [ ] Files generated using Piper or similar TTS
-- [ ] Files stored in source tree for version control
-- [ ] Test corpus documented with expected transcriptions
-- [ ] Wave files cover edge cases (short/long utterances, different voices, etc.)
+- [x] 10-15 wave files generated with varied content
+- [x] Files contain sample statements and questions
+- [x] Files generated using Piper or similar TTS
+- [x] Files stored in source tree for version control
+- [x] Test corpus documented with expected transcriptions
+- [x] Wave files cover edge cases (short/long utterances, different voices, etc.)
 
 ### Goal 4: Speech-to-Text Service Validation
 **Status:** Not Started
@@ -195,6 +195,7 @@ Design the architecture for the Home Assistant emulator before implementation.
 
 ### Task 3.3: Create Test Wave File Corpus
 **Priority:** P1 (High - needed for testing)
+**Status:** Completed (2026-02-19)
 **Owner:** TBD
 **Depends On:** Task 3.1
 **Estimated Effort:** 4 hours
