@@ -30,18 +30,18 @@ Validate that all necessary components are in place for Chatterbox backends to i
 ## Epic 3 Goals & Acceptance Criteria
 
 ### Goal 1: Wyoming Protocol Research and Documentation
-**Status:** Not Started
+**Status:** Completed (2026-02-19)
 
 Complete understanding of Wyoming protocol and actual conversation flows with Home Assistant.
 
 **Acceptance Criteria:**
-- [ ] Wyoming protocol specification thoroughly documented
-- [ ] Actual conversation flows between Home Assistant and Wyoming services mapped
-- [ ] All protocol endpoints and expected behaviors documented
-- [ ] Message formats and PCM packet specifications documented
-- [ ] Integration patterns for STT, TTS, and assist services documented
-- [ ] Protocol flow diagrams created
-- [ ] Validation of protocol assumptions completed
+- [x] Wyoming protocol specification thoroughly documented
+- [x] Actual conversation flows between Home Assistant and Wyoming services mapped
+- [x] All protocol endpoints and expected behaviors documented
+- [x] Message formats and PCM packet specifications documented
+- [x] Integration patterns for STT, TTS, and assist services documented
+- [ ] Protocol flow diagrams created (ASCII diagrams in docs; formal diagrams deferred)
+- [x] Validation of protocol assumptions completed
 
 ### Goal 2: Home Assistant Emulator Implementation
 **Status:** Not Started
