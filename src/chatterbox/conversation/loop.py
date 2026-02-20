@@ -12,8 +12,10 @@ linear (no branching, no multi-agent). See docs/agentic-framework-evaluation.md.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import time
 from typing import Any, Awaitable, Callable
 
 from chatterbox.conversation.providers import (
@@ -97,22 +99,41 @@ class AgenticLoop:
         messages.extend(chat_history)
         messages.append({"role": "user", "content": user_text})
 
+        turn_start = time.monotonic()
+
         for iteration in range(self.max_iterations):
             logger.debug("Agentic loop iteration %d/%d", iteration + 1, self.max_iterations)
 
+            llm_t0 = time.monotonic()
             result: CompletionResult = await self.provider.complete(messages, tools)
+            logger.debug(
+                "LLM call %d took %.3fs (finish_reason=%s)",
+                iteration + 1,
+                time.monotonic() - llm_t0,
+                result.finish_reason,
+            )
 
             if result.finish_reason == "stop":
                 response_text = result.content or ""
-                logger.info("Loop complete after %d iteration(s)", iteration + 1)
+                logger.info(
+                    "Loop complete after %d iteration(s) in %.3fs",
+                    iteration + 1,
+                    time.monotonic() - turn_start,
+                )
                 return response_text
 
             if result.finish_reason == "tool_calls" and result.tool_calls:
                 # Append assistant message with tool_calls
                 messages.append(result.raw_message)
 
-                # Dispatch each tool call and collect results
+                # Dispatch all tool calls concurrently and collect results
+                tools_t0 = time.monotonic()
                 tool_result_messages = await self._dispatch_tool_calls(result.tool_calls)
+                logger.debug(
+                    "Dispatched %d tool(s) concurrently in %.3fs",
+                    len(result.tool_calls),
+                    time.monotonic() - tools_t0,
+                )
                 messages.extend(tool_result_messages)
                 continue
 
@@ -130,31 +151,31 @@ class AgenticLoop:
     async def _dispatch_tool_calls(
         self, tool_calls: list[ToolCall]
     ) -> list[dict[str, Any]]:
-        """Dispatch a list of tool calls and return tool result messages.
+        """Dispatch a list of tool calls concurrently and return tool result messages.
+
+        All tool calls in the list are launched simultaneously via
+        ``asyncio.gather``, reducing latency when the LLM requests multiple
+        tools in a single response.
 
         Args:
             tool_calls: The tool invocations requested by the LLM.
 
         Returns:
             A list of OpenAI-format tool result messages to append to the
-            conversation history.
+            conversation history.  Order matches the order of *tool_calls*.
         """
-        result_messages: list[dict[str, Any]] = []
 
-        for tc in tool_calls:
+        async def _run_one(tc: ToolCall) -> dict[str, Any]:
             logger.debug("Dispatching tool: %s(%s)", tc.name, tc.arguments)
             try:
                 result_str = await self.tool_dispatcher(tc.name, tc.arguments)
             except Exception as exc:
                 logger.error("Tool %r failed: %s", tc.name, exc, exc_info=True)
                 result_str = json.dumps({"error": str(exc)})
+            return {
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": result_str,
+            }
 
-            result_messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": result_str,
-                }
-            )
-
-        return result_messages
+        return list(await asyncio.gather(*[_run_one(tc) for tc in tool_calls]))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -350,3 +351,60 @@ async def test_run_without_system_prompt_omits_system_message() -> None:
 
     messages = provider.complete.call_args[0][0]
     assert not any(m.get("role") == "system" for m in messages)
+
+
+# ---------------------------------------------------------------------------
+# Concurrent tool dispatch (Task 4.13 optimisation)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_tool_calls_dispatched_concurrently() -> None:
+    """Multiple tool calls in one response are dispatched concurrently via gather.
+
+    Strategy: each dispatcher invocation records 'start:<name>' immediately,
+    yields to the event loop (asyncio.sleep(0)), then records 'end:<name>'.
+    With concurrent dispatch both starts appear before any end; with
+    sequential dispatch the first tool fully completes before the second starts.
+    """
+    events: list[str] = []
+
+    async def tracking_dispatcher(name: str, args: dict[str, Any]) -> str:
+        events.append(f"start:{name}")
+        await asyncio.sleep(0)  # yield — other coroutines can run
+        events.append(f"end:{name}")
+        return f"result_of_{name}"
+
+    provider = _make_provider(
+        _tool_call_result([("c1", "tool_a", {}), ("c2", "tool_b", {})]),
+        _stop_result("done"),
+    )
+    loop = AgenticLoop(provider=provider, tool_dispatcher=tracking_dispatcher)
+    result = await loop.run("query", [], [])
+
+    assert result == "done"
+    # Both starts must precede both ends — proving concurrent execution
+    assert events.index("start:tool_a") < events.index("end:tool_b"), events
+    assert events.index("start:tool_b") < events.index("end:tool_a"), events
+
+
+@pytest.mark.anyio
+async def test_concurrent_tool_dispatch_preserves_order() -> None:
+    """Tool result messages preserve the order of the original tool_calls list."""
+    dispatcher = AsyncMock(side_effect=["res_a", "res_b", "res_c"])
+    provider = _make_provider(
+        _tool_call_result([
+            ("id1", "tool_a", {}),
+            ("id2", "tool_b", {}),
+            ("id3", "tool_c", {}),
+        ]),
+        _stop_result("ok"),
+    )
+    loop = AgenticLoop(provider=provider, tool_dispatcher=dispatcher)
+    await loop.run("query", [], [])
+
+    # Examine the messages passed to the second LLM call
+    second_call_msgs = provider.complete.call_args_list[1][0][0]
+    tool_msgs = [m for m in second_call_msgs if m.get("role") == "tool"]
+    assert [m["tool_call_id"] for m in tool_msgs] == ["id1", "id2", "id3"]
+    assert [m["content"] for m in tool_msgs] == ["res_a", "res_b", "res_c"]
