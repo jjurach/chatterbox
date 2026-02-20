@@ -22,6 +22,7 @@ from chatterbox.conversation.providers import (
     ToolCall,
     ToolDefinition,
 )
+from chatterbox.conversation.tools.weather import WeatherTool
 
 __all__ = [
     "AgenticLoop",
@@ -34,4 +35,5 @@ __all__ = [
     "ToolCall",
     "ToolDefinition",
     "ToolDispatcher",
+    "WeatherTool",
 ]
