@@ -156,6 +156,68 @@ async def test_clear_all_history() -> None:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Error handling in async_process
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_async_process_handles_runtime_error_gracefully() -> None:
+    """RuntimeError from the loop (max_iterations) should return an error message."""
+    entity = _make_entity()
+    entity._loop.run = AsyncMock(side_effect=RuntimeError("max_iterations exceeded"))
+
+    result = await entity.async_process(ConversationInput(text="Loop me forever"))
+
+    assert isinstance(result, ConversationResult)
+    assert "sorry" in result.response_text.lower()
+
+
+@pytest.mark.anyio
+async def test_async_process_handles_unexpected_exception_gracefully() -> None:
+    """Unexpected exceptions (e.g. LLM API errors) should return an error message."""
+    entity = _make_entity()
+    entity._loop.run = AsyncMock(side_effect=ConnectionError("API unreachable"))
+
+    result = await entity.async_process(ConversationInput(text="What's the weather?"))
+
+    assert isinstance(result, ConversationResult)
+    assert "sorry" in result.response_text.lower()
+
+
+@pytest.mark.anyio
+async def test_history_not_updated_on_loop_error() -> None:
+    """Failed turns must not pollute the session history."""
+    entity = _make_entity("First ok")
+    await entity.async_process(ConversationInput(text="First", conversation_id="sess"))
+    assert len(entity._histories["sess"]) == 2  # user + assistant
+
+    # Second turn fails
+    entity._loop.run = AsyncMock(side_effect=RuntimeError("boom"))
+    await entity.async_process(ConversationInput(text="Second (fails)", conversation_id="sess"))
+
+    # History should still only contain the first successful turn
+    assert len(entity._histories["sess"]) == 2
+
+
+@pytest.mark.anyio
+async def test_error_response_echoes_conversation_id() -> None:
+    """Error responses must still echo the conversation_id so the caller can track sessions."""
+    entity = _make_entity()
+    entity._loop.run = AsyncMock(side_effect=RuntimeError("boom"))
+
+    result = await entity.async_process(
+        ConversationInput(text="Help", conversation_id="sess-err")
+    )
+
+    assert result.conversation_id == "sess-err"
+
+
+# ---------------------------------------------------------------------------
+# ToolDefinition wiring
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.anyio
 async def test_tools_passed_to_loop() -> None:
     from chatterbox.conversation.providers import ToolDefinition

@@ -1,6 +1,6 @@
 # Epic 3 & 4: Wyoming Protocol and LLM Integration - Project Plan
 
-**Status:** Epic 3 Completed (2026-02-19); Epic 4 In Progress (Tasks 4.1–4.3 complete)
+**Status:** Epic 3 Completed (2026-02-19); Epic 4 In Progress (Tasks 4.1–4.4 complete)
 **Created:** 2026-02-18
 **Specification:** dev_notes/specs/spec-wyoming-protocol-llm-integration-20260218.md
 
@@ -584,7 +584,7 @@ Determine the exact conversation pattern used by Home Assistant.
 - **Option B (Single-Endpoint):** Combined Wyoming endpoint handles STT → LLM → TTS internally
 
 ### Goal 2: Agentic Loop State Machine
-**Status:** In Progress (Design complete — Task 4.3; Implementation pending — Task 4.4)
+**Status:** In Progress (Design complete — Task 4.3; Core implementation complete — Task 4.4)
 
 Implement state machine to manage conversation flow with LLM and tool calling.
 
@@ -807,7 +807,8 @@ Design the state machine for managing conversation flow.
 
 ### Task 4.4: Implement Core Agentic Loop
 **Priority:** P0 (Critical)
-**Owner:** TBD
+**Status:** Completed (2026-02-20)
+**Owner:** Claude Code
 **Depends On:** Task 4.3
 **Estimated Effort:** 12 hours
 

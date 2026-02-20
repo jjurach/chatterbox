@@ -127,13 +127,39 @@ class ChatterboxConversationEntity:
             len(history),
         )
 
-        response_text = await self._loop.run(
-            user_text=user_input.text,
-            chat_history=history,
-            tools=self.tools,
-        )
+        try:
+            response_text = await self._loop.run(
+                user_text=user_input.text,
+                chat_history=history,
+                tools=self.tools,
+            )
+        except RuntimeError as exc:
+            logger.error(
+                "AgenticLoop exceeded iteration limit for conversation id=%r: %s",
+                conv_id,
+                exc,
+            )
+            return ConversationResult(
+                response_text=(
+                    "I'm sorry, I got stuck trying to answer that. Please try again."
+                ),
+                conversation_id=conv_id,
+            )
+        except Exception as exc:
+            logger.error(
+                "Unexpected error in agentic loop for conversation id=%r: %s",
+                conv_id,
+                exc,
+                exc_info=True,
+            )
+            return ConversationResult(
+                response_text=(
+                    "I'm sorry, I encountered an error. Please try again."
+                ),
+                conversation_id=conv_id,
+            )
 
-        # Update in-memory history for this session
+        # Update in-memory history for this session (only on success)
         if conv_id is not None:
             updated_history = list(history)
             updated_history.append({"role": "user", "content": user_input.text})

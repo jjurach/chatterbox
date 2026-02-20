@@ -239,3 +239,114 @@ async def test_run_passes_tool_definitions_to_provider() -> None:
     _, tools_arg = provider.complete.call_args[0]
     assert len(tools_arg) == 1
     assert tools_arg[0].name == "get_weather"
+
+
+# ---------------------------------------------------------------------------
+# Edge cases
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_run_does_not_mutate_chat_history() -> None:
+    """The loop must not modify the caller's chat_history list."""
+    provider = _make_provider(_stop_result("Done"))
+    loop = AgenticLoop(provider=provider, tool_dispatcher=_noop_dispatcher)
+
+    history: list[dict[str, Any]] = [{"role": "user", "content": "Previous"}]
+    original_len = len(history)
+
+    await loop.run("New message", chat_history=history, tools=[])
+
+    assert len(history) == original_len, "chat_history must not be mutated"
+
+
+@pytest.mark.anyio
+async def test_run_returns_empty_string_for_none_content() -> None:
+    """If the LLM returns None content on stop, the loop should return ''."""
+    provider = _make_provider(
+        CompletionResult(
+            finish_reason="stop",
+            content=None,
+            tool_calls=[],
+            raw_message={"role": "assistant", "content": None},
+        )
+    )
+    loop = AgenticLoop(provider=provider, tool_dispatcher=_noop_dispatcher)
+
+    result = await loop.run("Hi", [], [])
+
+    assert result == ""
+
+
+@pytest.mark.anyio
+async def test_run_handles_unexpected_finish_reason() -> None:
+    """An unexpected finish_reason should log a warning and return content."""
+    provider = _make_provider(
+        CompletionResult(
+            finish_reason="content_filter",
+            content="Filtered response",
+            tool_calls=[],
+            raw_message={"role": "assistant", "content": "Filtered response"},
+        )
+    )
+    loop = AgenticLoop(provider=provider, tool_dispatcher=_noop_dispatcher)
+
+    result = await loop.run("Sensitive query", [], [])
+
+    assert result == "Filtered response"
+
+
+@pytest.mark.anyio
+async def test_run_handles_tool_calls_finish_reason_with_empty_calls() -> None:
+    """finish_reason=tool_calls with an empty tool_calls list falls to unexpected branch."""
+    provider = _make_provider(
+        CompletionResult(
+            finish_reason="tool_calls",
+            content="Fallback text",
+            tool_calls=[],
+            raw_message={"role": "assistant", "content": "Fallback text"},
+        )
+    )
+    loop = AgenticLoop(provider=provider, tool_dispatcher=_noop_dispatcher)
+
+    result = await loop.run("Hi", [], [])
+
+    # Should not call the dispatcher and should return the fallback content
+    assert result == "Fallback text"
+
+
+@pytest.mark.anyio
+async def test_run_dispatches_multiple_tool_calls_in_one_response() -> None:
+    """Multiple tool calls in a single LLM response are all dispatched."""
+    dispatcher = AsyncMock(side_effect=["weather_result", "news_result"])
+    provider = _make_provider(
+        _tool_call_result([
+            ("c1", "get_weather", {"location": "NYC"}),
+            ("c2", "get_news", {"topic": "sports"}),
+        ]),
+        _stop_result("Here is your weather and news."),
+    )
+
+    loop = AgenticLoop(provider=provider, tool_dispatcher=dispatcher)
+    result = await loop.run("Weather and news?", [], [])
+
+    assert result == "Here is your weather and news."
+    assert dispatcher.call_count == 2
+    dispatcher.assert_any_call("get_weather", {"location": "NYC"})
+    dispatcher.assert_any_call("get_news", {"topic": "sports"})
+
+
+@pytest.mark.anyio
+async def test_run_without_system_prompt_omits_system_message() -> None:
+    """If no system_prompt is set, no system message should be prepended."""
+    provider = _make_provider(_stop_result("ok"))
+    loop = AgenticLoop(
+        provider=provider,
+        tool_dispatcher=_noop_dispatcher,
+        system_prompt=None,
+    )
+
+    await loop.run("Hello", [], [])
+
+    messages = provider.complete.call_args[0][0]
+    assert not any(m.get("role") == "system" for m in messages)
