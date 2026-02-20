@@ -82,7 +82,7 @@ Repository = "https://github.com/yourusername/chatterbox.git"
 Issues = "https://github.com/yourusername/chatterbox/issues"
 
 [tool.setuptools]
-packages = ["chatterbox", "chatterbox.audio", "chatterbox.config", "chatterbox.services", "chatterbox.tools", "chatterbox.tools.builtin", "chatterbox.adapters", "chatterbox.adapters.wyoming", "chatterbox.adapters.rest", "wyoming_tester", "ha_emulator", "demos", "tests"]
+packages = ["chatterbox", "chatterbox.audio", "chatterbox.config", "chatterbox.conversation", "chatterbox.services", "chatterbox.tools", "chatterbox.tools.builtin", "chatterbox.adapters", "chatterbox.adapters.wyoming", "chatterbox.adapters.rest", "wyoming_tester", "ha_emulator", "demos", "tests"]
 
 [tool.setuptools.package-dir]
 "" = "."
