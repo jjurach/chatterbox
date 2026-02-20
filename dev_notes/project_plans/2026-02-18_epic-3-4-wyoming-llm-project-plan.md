@@ -1,6 +1,6 @@
 # Epic 3 & 4: Wyoming Protocol and LLM Integration - Project Plan
 
-**Status:** Epic 3 Completed (2026-02-19); Epic 4 In Progress (Tasks 4.1–4.8, 4.10 complete)
+**Status:** Epic 3 Completed (2026-02-19); Epic 4 In Progress (Tasks 4.1–4.8, 4.10–4.12 complete)
 **Created:** 2026-02-18
 **Specification:** dev_notes/specs/spec-wyoming-protocol-llm-integration-20260218.md
 
@@ -1088,7 +1088,8 @@ Create context placeholder if deferring to future epic.
 
 ### Task 4.11: Integrate with Wyoming Protocol Endpoints
 **Priority:** P0 (Critical)
-**Owner:** TBD
+**Status:** Completed (2026-02-20)
+**Owner:** Claude Code
 **Depends On:** Task 4.4, Epic 3 completion
 **Estimated Effort:** 8 hours
 
@@ -1124,7 +1125,8 @@ Connect agentic loop with Wyoming protocol STT/TTS endpoints.
 
 ### Task 4.12: End-to-End Conversation Testing
 **Priority:** P0 (Critical)
-**Owner:** TBD
+**Status:** Completed (2026-02-20)
+**Owner:** Claude Code
 **Depends On:** Task 4.11, Task 4.7, Task 4.5
 **Estimated Effort:** 10 hours
 
