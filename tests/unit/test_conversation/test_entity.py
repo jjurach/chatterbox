@@ -19,7 +19,6 @@ from chatterbox.conversation.providers import (
     LLMRateLimitError,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -64,8 +63,10 @@ async def test_async_process_passes_user_text_to_loop() -> None:
 
     entity._loop.run.assert_called_once()
     call_kwargs = entity._loop.run.call_args
-    assert call_kwargs.kwargs.get("user_text") == "What time is it?" or \
-           call_kwargs.args[0] == "What time is it?"
+    assert (
+        call_kwargs.kwargs.get("user_text") == "What time is it?"
+        or call_kwargs.args[0] == "What time is it?"
+    )
 
 
 @pytest.mark.anyio
@@ -199,7 +200,9 @@ async def test_history_not_updated_on_loop_error() -> None:
 
     # Second turn fails
     entity._loop.run = AsyncMock(side_effect=RuntimeError("boom"))
-    await entity.async_process(ConversationInput(text="Second (fails)", conversation_id="sess"))
+    await entity.async_process(
+        ConversationInput(text="Second (fails)", conversation_id="sess")
+    )
 
     # History should still only contain the first successful turn
     assert len(entity._histories["sess"]) == 2
@@ -283,7 +286,9 @@ async def test_async_process_handles_connection_error() -> None:
 @pytest.mark.anyio
 async def test_async_process_handles_api_error() -> None:
     entity = _make_entity()
-    entity._loop.run = AsyncMock(side_effect=LLMAPIError("server error", status_code=500))
+    entity._loop.run = AsyncMock(
+        side_effect=LLMAPIError("server error", status_code=500)
+    )
 
     result = await entity.async_process(ConversationInput(text="Hello"))
 
@@ -309,7 +314,154 @@ async def test_connection_error_does_not_pollute_history() -> None:
     assert len(entity._histories["sess"]) == 2
 
     entity._loop.run = AsyncMock(side_effect=LLMConnectionError("unreachable"))
-    await entity.async_process(ConversationInput(text="Second (fails)", conversation_id="sess"))
+    await entity.async_process(
+        ConversationInput(text="Second (fails)", conversation_id="sess")
+    )
 
     # History should still only contain the first successful turn
     assert len(entity._histories["sess"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# Task 4.8: max_history_turns truncation
+# ---------------------------------------------------------------------------
+
+
+def _make_entity_with_limit(
+    max_turns: int, response: str = "R"
+) -> ChatterboxConversationEntity:
+    """Create an entity with max_history_turns=max_turns."""
+    provider = AsyncMock(spec=LLMProvider)
+
+    async def noop(name: str, args: dict[str, Any]) -> str:
+        return "result"
+
+    entity = ChatterboxConversationEntity(
+        provider=provider,
+        tool_dispatcher=noop,
+        max_history_turns=max_turns,
+    )
+    entity._loop.run = AsyncMock(return_value=response)
+    return entity
+
+
+@pytest.mark.anyio
+async def test_history_not_truncated_when_within_limit() -> None:
+    """When turns < max_history_turns, nothing is dropped."""
+    entity = _make_entity_with_limit(max_turns=3)
+    for i in range(2):
+        entity._loop.run = AsyncMock(return_value=f"R{i}")
+        await entity.async_process(ConversationInput(text=f"Q{i}", conversation_id="s"))
+
+    # 2 turns = 4 messages; limit is 3 turns = 6 messages — no truncation
+    assert len(entity._histories["s"]) == 4
+
+
+@pytest.mark.anyio
+async def test_history_truncated_when_over_limit() -> None:
+    """History window drops the oldest turns once the limit is exceeded."""
+    entity = _make_entity_with_limit(max_turns=2)
+    # Add 3 turns worth of history
+    for i in range(3):
+        entity._loop.run = AsyncMock(return_value=f"R{i}")
+        await entity.async_process(ConversationInput(text=f"Q{i}", conversation_id="s"))
+
+    # The stored history grows naturally after each successful turn.
+    # After 3 turns the raw store = 6 messages.  The NEXT call will pass
+    # _truncate_history over those 6, keeping only the last 4 (2 turns).
+    entity._loop.run = AsyncMock(return_value="R3")
+    await entity.async_process(ConversationInput(text="Q3", conversation_id="s"))
+
+    # The history passed to the loop on the last call should be ≤ max*2
+    call_args = entity._loop.run.call_args
+    history_passed = call_args.kwargs.get("chat_history") or call_args.args[1]
+    assert len(history_passed) <= 2 * 2  # max_history_turns=2 → 4 messages
+
+
+@pytest.mark.anyio
+async def test_max_history_turns_zero_disables_truncation() -> None:
+    """Setting max_history_turns=0 disables truncation entirely."""
+    entity = _make_entity_with_limit(max_turns=0)
+    for i in range(5):
+        entity._loop.run = AsyncMock(return_value=f"R{i}")
+        await entity.async_process(ConversationInput(text=f"Q{i}", conversation_id="s"))
+
+    assert len(entity._histories["s"]) == 10  # 5 turns × 2 messages, nothing dropped
+
+
+# ---------------------------------------------------------------------------
+# Task 4.8: auto_create_conversation_id
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_auto_create_conversation_id_generates_id() -> None:
+    """When auto_create_conversation_id=True and no id given, one is created."""
+    provider = AsyncMock(spec=LLMProvider)
+
+    async def noop(name: str, args: dict[str, Any]) -> str:
+        return "r"
+
+    entity = ChatterboxConversationEntity(
+        provider=provider,
+        tool_dispatcher=noop,
+        auto_create_conversation_id=True,
+    )
+    entity._loop.run = AsyncMock(return_value="Hello")
+
+    result = await entity.async_process(ConversationInput(text="Hi"))
+
+    assert result.conversation_id is not None
+    assert len(result.conversation_id) == 36  # UUID4 format: 8-4-4-4-12
+
+
+@pytest.mark.anyio
+async def test_auto_create_conversation_id_stores_history() -> None:
+    """Auto-created session IDs should accumulate history normally."""
+    provider = AsyncMock(spec=LLMProvider)
+
+    async def noop(name: str, args: dict[str, Any]) -> str:
+        return "r"
+
+    entity = ChatterboxConversationEntity(
+        provider=provider,
+        tool_dispatcher=noop,
+        auto_create_conversation_id=True,
+    )
+    entity._loop.run = AsyncMock(return_value="Hello")
+
+    result = await entity.async_process(ConversationInput(text="Hi"))
+    sid = result.conversation_id
+
+    assert sid is not None
+    assert sid in entity._histories
+    assert len(entity._histories[sid]) == 2
+
+
+@pytest.mark.anyio
+async def test_auto_create_disabled_by_default() -> None:
+    """Default behaviour: no auto ID; None returned when no id provided."""
+    entity = _make_entity("OK")
+    result = await entity.async_process(ConversationInput(text="Hello"))
+    assert result.conversation_id is None
+
+
+@pytest.mark.anyio
+async def test_explicit_id_takes_precedence_over_auto_create() -> None:
+    """If the caller provides an id, it is used even with auto_create=True."""
+    provider = AsyncMock(spec=LLMProvider)
+
+    async def noop(name: str, args: dict[str, Any]) -> str:
+        return "r"
+
+    entity = ChatterboxConversationEntity(
+        provider=provider,
+        tool_dispatcher=noop,
+        auto_create_conversation_id=True,
+    )
+    entity._loop.run = AsyncMock(return_value="Yep")
+
+    result = await entity.async_process(
+        ConversationInput(text="Hello", conversation_id="explicit-id")
+    )
+    assert result.conversation_id == "explicit-id"

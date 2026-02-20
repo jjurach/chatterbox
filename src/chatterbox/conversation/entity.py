@@ -16,6 +16,7 @@ Reference: https://developers.home-assistant.io/docs/core/conversation/custom_ag
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -97,9 +98,32 @@ class ChatterboxConversationEntity:
         system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
         max_iterations: int = 10,
         name: str = "Chatterbox",
+        max_history_turns: int = 20,
+        auto_create_conversation_id: bool = False,
     ) -> None:
+        """Initialise the conversation entity.
+
+        Args:
+            provider: The LLM backend.
+            tool_dispatcher: Async callable that executes tool calls.
+            tools: Tool definitions available to the LLM.
+            system_prompt: Persona/instruction text prepended to every turn.
+            max_iterations: Max LLM calls per turn (passed to AgenticLoop).
+            name: Display name shown in HA's Assist dashboard.
+            max_history_turns: Maximum number of *conversation turns* (user +
+                assistant pairs) to retain in memory. Older turns are silently
+                dropped to bound token consumption. Defaults to 20 turns
+                (40 messages). Set to ``0`` to disable truncation.
+            auto_create_conversation_id: When ``True`` and the caller provides
+                no ``conversation_id``, a new UUID4 session ID is generated and
+                returned in the result. Useful for callers that do not manage
+                their own IDs. Defaults to ``False`` (stateless single-turn
+                behaviour).
+        """
         self.name = name
         self.tools = tools or []
+        self.max_history_turns = max_history_turns
+        self.auto_create_conversation_id = auto_create_conversation_id
         self._loop = AgenticLoop(
             provider=provider,
             tool_dispatcher=tool_dispatcher,
@@ -107,8 +131,36 @@ class ChatterboxConversationEntity:
             system_prompt=system_prompt,
         )
         # In-memory chat history per conversation_id.
-        # This is a stub — Epic 4.8/4.9 will evaluate persistent storage.
+        # Task 4.8 decision: persistent storage deferred to Epic 5.
+        # See docs/context-management-research.md for rationale.
         self._histories: dict[str, list[dict[str, Any]]] = {}
+
+    def _truncate_history(self, history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Return a window of *history* capped at ``max_history_turns``.
+
+        Each turn is two messages (user + assistant). If ``max_history_turns``
+        is 0 (disabled), the full history is returned unchanged.
+
+        Args:
+            history: Full in-memory message list for a session.
+
+        Returns:
+            A (possibly shortened) copy of the history.
+        """
+        if self.max_history_turns == 0 or len(history) == 0:
+            return list(history)
+        # Each turn = 2 messages; keep only the last N turns.
+        keep = self.max_history_turns * 2
+        if len(history) > keep:
+            dropped = (len(history) - keep) // 2
+            logger.debug(
+                "History window: dropping %d oldest turn(s) to stay within "
+                "max_history_turns=%d",
+                dropped,
+                self.max_history_turns,
+            )
+            return history[-keep:]
+        return list(history)
 
     async def async_process(self, user_input: ConversationInput) -> ConversationResult:
         """Process one conversation turn.
@@ -117,6 +169,10 @@ class ChatterboxConversationEntity:
         agentic loop, appends the new turn to history, and returns the
         LLM's response.
 
+        If ``auto_create_conversation_id`` is ``True`` and no
+        ``conversation_id`` is supplied, a new UUID4 session ID is created
+        and returned in the result so the caller can track the session.
+
         Args:
             user_input: The user's transcribed utterance and session context.
 
@@ -124,7 +180,12 @@ class ChatterboxConversationEntity:
             A `ConversationResult` with the LLM's text response.
         """
         conv_id = user_input.conversation_id
+        if conv_id is None and self.auto_create_conversation_id:
+            conv_id = str(uuid.uuid4())
+            logger.debug("Auto-created conversation_id=%r", conv_id)
+
         history = self._histories.get(conv_id, []) if conv_id else []
+        history = self._truncate_history(history)
 
         logger.info(
             "Processing conversation turn: id=%r, text=%r, history_len=%d",
@@ -198,9 +259,7 @@ class ChatterboxConversationEntity:
                 exc_info=True,
             )
             return ConversationResult(
-                response_text=(
-                    "I'm sorry, I encountered an error. Please try again."
-                ),
+                response_text=("I'm sorry, I encountered an error. Please try again."),
                 conversation_id=conv_id,
             )
 
@@ -211,7 +270,9 @@ class ChatterboxConversationEntity:
             updated_history.append({"role": "assistant", "content": response_text})
             self._histories[conv_id] = updated_history
 
-        logger.info("Conversation turn complete: id=%r, response=%r", conv_id, response_text)
+        logger.info(
+            "Conversation turn complete: id=%r, response=%r", conv_id, response_text
+        )
 
         return ConversationResult(
             response_text=response_text,
