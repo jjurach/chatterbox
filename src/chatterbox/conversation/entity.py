@@ -20,7 +20,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from chatterbox.conversation.loop import AgenticLoop, ToolDispatcher
-from chatterbox.conversation.providers import LLMProvider, ToolDefinition
+from chatterbox.conversation.providers import (
+    LLMAPIError,
+    LLMConnectionError,
+    LLMProvider,
+    LLMRateLimitError,
+    ToolDefinition,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +148,45 @@ class ChatterboxConversationEntity:
             return ConversationResult(
                 response_text=(
                     "I'm sorry, I got stuck trying to answer that. Please try again."
+                ),
+                conversation_id=conv_id,
+            )
+        except LLMRateLimitError as exc:
+            logger.warning(
+                "LLM rate limit hit for conversation id=%r: %s",
+                conv_id,
+                exc,
+            )
+            return ConversationResult(
+                response_text=(
+                    "I'm sorry, I'm receiving too many requests right now. "
+                    "Please try again in a moment."
+                ),
+                conversation_id=conv_id,
+            )
+        except LLMConnectionError as exc:
+            logger.error(
+                "LLM connection error for conversation id=%r: %s",
+                conv_id,
+                exc,
+            )
+            return ConversationResult(
+                response_text=(
+                    "I'm sorry, I can't reach my language model right now. "
+                    "Please check the connection and try again."
+                ),
+                conversation_id=conv_id,
+            )
+        except LLMAPIError as exc:
+            logger.error(
+                "LLM API error for conversation id=%r (status=%s): %s",
+                conv_id,
+                exc.status_code,
+                exc,
+            )
+            return ConversationResult(
+                response_text=(
+                    "I'm sorry, my language model returned an error. Please try again."
                 ),
                 conversation_id=conv_id,
             )

@@ -1,6 +1,6 @@
 # Epic 3 & 4: Wyoming Protocol and LLM Integration - Project Plan
 
-**Status:** Epic 3 Completed (2026-02-19); Epic 4 In Progress (Tasks 4.1–4.4 complete)
+**Status:** Epic 3 Completed (2026-02-19); Epic 4 In Progress (Tasks 4.1–4.7 complete)
 **Created:** 2026-02-18
 **Specification:** dev_notes/specs/spec-wyoming-protocol-llm-integration-20260218.md
 
@@ -935,7 +935,8 @@ Create extensible framework for tool management.
 
 ### Task 4.7: Integrate LLM with System Prompts
 **Priority:** P0 (Critical)
-**Owner:** TBD
+**Status:** Completed (2026-02-20)
+**Owner:** Claude Code
 **Depends On:** Task 4.4, Task 4.6
 **Estimated Effort:** 8 hours
 

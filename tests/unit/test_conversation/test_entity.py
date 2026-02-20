@@ -12,7 +12,12 @@ from chatterbox.conversation.entity import (
     ConversationInput,
     ConversationResult,
 )
-from chatterbox.conversation.providers import LLMProvider
+from chatterbox.conversation.providers import (
+    LLMAPIError,
+    LLMConnectionError,
+    LLMProvider,
+    LLMRateLimitError,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -245,3 +250,66 @@ async def test_tools_passed_to_loop() -> None:
     tools_passed = call_args.kwargs.get("tools") or call_args.args[2]
     assert len(tools_passed) == 1
     assert tools_passed[0].name == "get_weather"
+
+
+# ---------------------------------------------------------------------------
+# LLM-specific exception handling (Task 4.7)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_async_process_handles_rate_limit_error() -> None:
+    entity = _make_entity()
+    entity._loop.run = AsyncMock(side_effect=LLMRateLimitError("429 too many requests"))
+
+    result = await entity.async_process(ConversationInput(text="Hello"))
+
+    assert isinstance(result, ConversationResult)
+    assert "sorry" in result.response_text.lower()
+    assert "try again" in result.response_text.lower()
+
+
+@pytest.mark.anyio
+async def test_async_process_handles_connection_error() -> None:
+    entity = _make_entity()
+    entity._loop.run = AsyncMock(side_effect=LLMConnectionError("no route to host"))
+
+    result = await entity.async_process(ConversationInput(text="Hello"))
+
+    assert isinstance(result, ConversationResult)
+    assert "sorry" in result.response_text.lower()
+
+
+@pytest.mark.anyio
+async def test_async_process_handles_api_error() -> None:
+    entity = _make_entity()
+    entity._loop.run = AsyncMock(side_effect=LLMAPIError("server error", status_code=500))
+
+    result = await entity.async_process(ConversationInput(text="Hello"))
+
+    assert isinstance(result, ConversationResult)
+    assert "sorry" in result.response_text.lower()
+
+
+@pytest.mark.anyio
+async def test_rate_limit_error_echoes_conversation_id() -> None:
+    entity = _make_entity()
+    entity._loop.run = AsyncMock(side_effect=LLMRateLimitError("limited"))
+
+    result = await entity.async_process(
+        ConversationInput(text="Hello", conversation_id="sess-rl")
+    )
+    assert result.conversation_id == "sess-rl"
+
+
+@pytest.mark.anyio
+async def test_connection_error_does_not_pollute_history() -> None:
+    entity = _make_entity("First ok")
+    await entity.async_process(ConversationInput(text="First", conversation_id="sess"))
+    assert len(entity._histories["sess"]) == 2
+
+    entity._loop.run = AsyncMock(side_effect=LLMConnectionError("unreachable"))
+    await entity.async_process(ConversationInput(text="Second (fails)", conversation_id="sess"))
+
+    # History should still only contain the first successful turn
+    assert len(entity._histories["sess"]) == 2
