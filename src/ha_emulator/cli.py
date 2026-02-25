@@ -111,6 +111,25 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Expected transcript for validation",
     )
 
+    # ---- ptt (satellite push-to-talk round-trip) -------------------------
+    p_ptt = sub.add_parser(
+        "ptt",
+        parents=[conn],
+        help="Satellite push-to-talk: send audio, receive transcript + TTS audio",
+    )
+    p_ptt.add_argument("wav_file", type=Path, help="WAV file to send as audio input")
+    p_ptt.add_argument(
+        "--output", "-o",
+        type=Path,
+        default=None,
+        help="Save TTS response audio to this WAV file",
+    )
+    p_ptt.add_argument(
+        "--context", "-c",
+        default=None,
+        help="Conversation ID for multi-turn sessions",
+    )
+
     return parser
 
 
@@ -179,6 +198,28 @@ async def _run_single_stt(args) -> int:
     return 0
 
 
+async def _run_ptt(args) -> int:
+    emulator = HAEmulator(args.host, args.port, timeout=args.timeout)
+    result = await emulator.run_ptt(
+        args.wav_file,
+        output_wav=args.output,
+        context_id=args.context,
+    )
+
+    if not result.success:
+        print(f"PTT FAILED — {result.error}", file=sys.stderr)
+        return 1
+
+    print(f"Transcript : {result.transcript}")
+    print(f"Audio      : {len(result.audio_bytes)} bytes")
+    print(f"Latency    : {result.round_trip_ms:.0f} ms")
+    if args.output and result.audio_bytes:
+        print(f"Saved to   : {args.output}")
+    if args.context:
+        print(f"Context    : {args.context}")
+    return 0
+
+
 def main() -> None:
     """Entry point for the ha-emulator CLI."""
     parser = _build_parser()
@@ -194,6 +235,7 @@ def main() -> None:
         "tts": _run_tts,
         "full": _run_full,
         "single-stt": _run_single_stt,
+        "ptt": _run_ptt,
     }
 
     handler = handlers.get(args.command)

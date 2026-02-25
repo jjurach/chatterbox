@@ -6,7 +6,7 @@ conversation flows without a live Home Assistant instance.
 """
 
 from .corpus import CorpusEntry, CorpusLoader
-from .emulator import FullResult, HAEmulator, STTResult, TTSResult
+from .emulator import FullResult, HAEmulator, PTTResult, STTResult, TTSResult
 from .runner import EntryReport, TestReport, TestRunner
 from .validator import ResultValidator, ValidationResult
 
@@ -15,6 +15,7 @@ __all__ = [
     "STTResult",
     "TTSResult",
     "FullResult",
+    "PTTResult",
     "CorpusLoader",
     "CorpusEntry",
     "ResultValidator",

@@ -51,6 +51,20 @@ class FullResult:
     round_trip_ms: float
 
 
+@dataclass
+class PTTResult:
+    """Result from a satellite push-to-talk round-trip (single connection)."""
+
+    transcript: str
+    audio_bytes: bytes
+    audio_rate: int
+    audio_width: int
+    audio_channels: int
+    round_trip_ms: float
+    success: bool
+    error: Optional[str] = None
+
+
 class HAEmulator:
     """Emulates Home Assistant interactions with a Wyoming service.
 
@@ -205,6 +219,150 @@ class HAEmulator:
         )
         round_trip_ms = (time.monotonic() - t0) * 1000.0
         return FullResult(stt=stt_result, tts=tts_result, round_trip_ms=round_trip_ms)
+
+    async def run_ptt(
+        self,
+        wav_path: Path,
+        output_wav: Optional[Path] = None,
+        context_id: Optional[str] = None,
+    ) -> PTTResult:
+        """Emulate a satellite push-to-talk round-trip on a single connection.
+
+        Matches real satellite hardware behavior: sends audio and waits for
+        transcript + TTS audio response on the same TCP connection, without
+        an initial Transcribe event.
+
+        Protocol sequence:
+          → AudioStart
+          → AudioChunk × N  (raw PCM from wav_path)
+          → AudioStop
+          ← Transcript       (STT result)
+          ← Synthesize       (LLM text response, may be skipped by server)
+          ← AudioStart
+          ← AudioChunk × N
+          ← AudioStop        (TTS audio stream)
+
+        Args:
+            wav_path: WAV file to send as audio input.
+            output_wav: Optional path to save the TTS response audio.
+            context_id: Optional conversation ID for multi-turn sessions.
+        """
+        wav_path = Path(wav_path)
+        t0 = time.monotonic()
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(self.host, self.port),
+                timeout=self.connect_timeout,
+            )
+        except (asyncio.TimeoutError, OSError) as exc:
+            return PTTResult(
+                transcript="",
+                audio_bytes=b"",
+                audio_rate=0,
+                audio_width=0,
+                audio_channels=0,
+                round_trip_ms=0.0,
+                success=False,
+                error=f"Connection failed: {exc}",
+            )
+
+        try:
+            pcm_data, rate, width, channels = _read_wav(wav_path)
+
+            # Satellite mode: no Transcribe event, just stream audio
+            await async_write_event(
+                AudioStart(rate=rate, width=width, channels=channels).event(), writer
+            )
+            for i in range(0, len(pcm_data), _CHUNK_SIZE):
+                chunk = pcm_data[i : i + _CHUNK_SIZE]
+                await async_write_event(
+                    AudioChunk(
+                        rate=rate, width=width, channels=channels, audio=chunk
+                    ).event(),
+                    writer,
+                )
+            await async_write_event(AudioStop().event(), writer)
+
+            # Read events until we have both transcript and audio
+            transcript_text = ""
+            audio_rate = 22050
+            audio_width = 2
+            audio_channels = 1
+            chunks: list = []
+            deadline = time.monotonic() + self.timeout
+
+            while time.monotonic() < deadline:
+                remaining = deadline - time.monotonic()
+                try:
+                    event = await asyncio.wait_for(
+                        async_read_event(reader), timeout=remaining
+                    )
+                except asyncio.TimeoutError:
+                    break
+                except Exception as exc:
+                    return PTTResult(
+                        transcript=transcript_text,
+                        audio_bytes=b"".join(chunks),
+                        audio_rate=audio_rate,
+                        audio_width=audio_width,
+                        audio_channels=audio_channels,
+                        round_trip_ms=(time.monotonic() - t0) * 1000.0,
+                        success=False,
+                        error=f"Read error: {exc}",
+                    )
+
+                if event is None:
+                    break
+
+                if event.type == "transcript":
+                    transcript_text = (event.data or {}).get("text", "")
+                    logger.debug("PTT Transcript: %r", transcript_text)
+                elif event.type == "audio-start":
+                    d = event.data or {}
+                    audio_rate = d.get("rate", audio_rate)
+                    audio_width = d.get("width", audio_width)
+                    audio_channels = d.get("channels", audio_channels)
+                elif event.type == "audio-chunk":
+                    payload = getattr(event, "payload", None) or (
+                        event.data or {}
+                    ).get("audio", b"")
+                    if payload:
+                        chunks.append(payload)
+                elif event.type == "audio-stop":
+                    logger.debug("PTT AudioStop received — round-trip complete")
+                    break
+                else:
+                    logger.debug("PTT skipping event: %s", event.type)
+
+            audio_bytes = b"".join(chunks)
+            round_trip_ms = (time.monotonic() - t0) * 1000.0
+
+            if output_wav and audio_bytes:
+                tts_result = TTSResult(
+                    audio_bytes=audio_bytes,
+                    audio_rate=audio_rate,
+                    audio_width=audio_width,
+                    audio_channels=audio_channels,
+                    latency_ms=0.0,
+                    success=True,
+                )
+                _save_wav(tts_result, Path(output_wav))
+
+            return PTTResult(
+                transcript=transcript_text,
+                audio_bytes=audio_bytes,
+                audio_rate=audio_rate,
+                audio_width=audio_width,
+                audio_channels=audio_channels,
+                round_trip_ms=round_trip_ms,
+                success=True,
+            )
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     # Internal helpers
