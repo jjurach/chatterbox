@@ -649,12 +649,12 @@ class WyomingServer:
                     model_size=self.stt_model,
                     device=self.stt_device,
                 )
-                await stt_service.load_model()
+                # Mellona handles model loading automatically
                 elapsed = time.time() - start_time
-                logger.info(f"STT model loaded successfully in {elapsed:.1f}s")
+                logger.info(f"STT model initialized successfully in {elapsed:.1f}s")
             except Exception as e:
-                logger.error(f"Failed to load STT model: {e}", exc_info=True)
-                raise RuntimeError(f"Cannot start server: STT model failed to load - {e}")
+                logger.error(f"Failed to initialize STT model: {e}", exc_info=True)
+                raise RuntimeError(f"Cannot start server: STT model failed to initialize - {e}")
 
         if self.mode in ("tts_only", "combined", "full"):
             logger.info(f"Initializing TTS voice: {self.tts_voice}...")
