@@ -1,21 +1,23 @@
-"""Speech-to-Text service using OpenAI Whisper."""
+"""Speech-to-Text service using mellona STT providers."""
 
-import asyncio
-import io
 import logging
-import os
+import tempfile
+import wave
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
-from faster_whisper import WhisperModel
-from scipy import signal
+from mellona import get_manager, STTRequest
 
 logger = logging.getLogger(__name__)
 
 
 class WhisperSTTService:
-    """Speech-to-Text service using faster-whisper."""
+    """Speech-to-Text service using mellona's STT providers.
+
+    This service wraps mellona's STT providers (primarily FasterWhisper)
+    to maintain backward compatibility with the existing chatterbox interface.
+    Mellona handles the underlying Whisper model management and caching.
+    """
 
     def __init__(
         self,
@@ -25,49 +27,36 @@ class WhisperSTTService:
         compute_type: str = "int8",
         cache_dir: Optional[str] = None,
     ):
-        """Initialize Whisper STT service.
+        """Initialize STT service using mellona.
 
         Args:
             model_size: Model size (tiny, base, small, medium, large). Defaults to "base".
             device: Device to run on (cpu, cuda). Defaults to "cpu".
             language: Language code (e.g., 'en'). None = auto-detect. Defaults to None.
-            compute_type: Compute type (int8, int16, float32, float16). Defaults to "int8".
-            cache_dir: Directory to cache models. Defaults to ~/.cache/chatterbox/whisper.
+            compute_type: Compute type (unused, kept for backward compatibility).
+            cache_dir: Directory to cache models (unused, mellona manages this).
         """
         self.model_size = model_size
         self.device = device
         self.language = language
+        # Backward compatibility: store these but mellona manages them
         self.compute_type = compute_type
-        self.model: Optional[WhisperModel] = None
-        self._loaded = False
-
-        # Setup cache directory
-        if cache_dir is None:
-            cache_dir = str(Path.home() / ".cache" / "chatterbox" / "whisper")
         self.cache_dir = cache_dir
-        # Create cache directory if it doesn't exist
-        Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
-        logger.info(f"Whisper cache directory: {self.cache_dir}")
 
-    async def load_model(self) -> None:
-        """Load the Whisper model asynchronously."""
-        if self._loaded:
-            return
+        # Get STT provider from mellona
+        manager = get_manager()
+        self.stt_provider = manager.get_stt_provider("faster_whisper")
 
-        def _load():
-            self.model = WhisperModel(
-                self.model_size,
-                device=self.device,
-                compute_type=self.compute_type,
-                download_root=self.cache_dir,
+        if self.stt_provider is None:
+            logger.warning(
+                "FasterWhisper STT provider not available. "
+                "Ensure faster-whisper is installed and mellona is configured."
             )
-
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _load)
-        self._loaded = True
-        logger.info(
-            f"Loaded Whisper model: {self.model_size} on {self.device} (cache: {self.cache_dir})"
-        )
+        else:
+            logger.info(
+                f"Initialized mellona STT service with faster_whisper "
+                f"(model: {model_size}, device: {device})"
+            )
 
     async def transcribe(
         self, audio_data: bytes, sample_rate: int = 16000
@@ -82,52 +71,51 @@ class WhisperSTTService:
             Dictionary with transcription results:
                 - text: Transcribed text
                 - language: Detected language code
-                - confidence: Average confidence score
+                - confidence: Average confidence score (always 0.0 from mellona)
         """
-        if not self._loaded:
-            await self.load_model()
-
-        if self.model is None:
-            raise RuntimeError("Model failed to load")
-
-        # Convert bytes to numpy array
-        audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32)
-        audio_array /= 32768.0  # Normalize to [-1, 1]
-
-        # Resample if necessary (Whisper expects 16kHz)
-        target_sr = 16000
-        if sample_rate != target_sr:
-            num_samples = int(len(audio_array) * target_sr / sample_rate)
-            audio_array = signal.resample(audio_array, num_samples)
-            logger.debug(f"Resampled audio from {sample_rate}Hz to {target_sr}Hz")
-
-        # Run transcription in executor
-        def _transcribe():
-            segments, info = self.model.transcribe(
-                audio_array,
-                language=self.language,
-                beam_size=5,
-                best_of=5,
+        if self.stt_provider is None:
+            raise RuntimeError(
+                "STT provider not available. Ensure faster-whisper is installed."
             )
-            text = "".join(segment.text for segment in segments)
-            # Calculate average confidence
-            confidences = [segment.confidence for segment in segments]
-            avg_confidence = (
-                sum(confidences) / len(confidences) if confidences else 0.0
-            )
-            return {
-                "text": text,
-                "language": info.language,
-                "confidence": avg_confidence,
-            }
 
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, _transcribe)
-        logger.debug(
-            f"Transcribed: {result['text'][:100]} "
-            f"(lang: {result['language']}, conf: {result['confidence']:.2f})"
-        )
-        return result
+        # Convert PCM bytes to WAV file (mellona expects a file path)
+        with tempfile.NamedTemporaryFile(
+            suffix=".wav", delete=False, mode="wb"
+        ) as tmp_file:
+            tmp_path = tmp_file.name
+            try:
+                # Write WAV header and PCM data
+                with wave.open(tmp_path, "wb") as wav_file:
+                    wav_file.setnchannels(1)  # Mono
+                    wav_file.setsampwidth(2)  # 2 bytes per sample (16-bit)
+                    wav_file.setframerate(sample_rate)
+                    wav_file.writeframes(audio_data)
+
+                # Call mellona STT provider
+                request = STTRequest(
+                    audio_file_path=tmp_path,
+                    language=self.language,
+                )
+                response = await self.stt_provider.transcribe(request)
+
+                logger.debug(
+                    f"Transcribed: {response.text[:100]} "
+                    f"(lang: {response.language})"
+                )
+
+                # Return in the same format as the old service
+                return {
+                    "text": response.text,
+                    "language": response.language or "unknown",
+                    "confidence": 0.0,  # Mellona doesn't provide confidence
+                }
+
+            finally:
+                # Clean up temp file
+                try:
+                    Path(tmp_path).unlink()
+                except Exception as e:
+                    logger.warning(f"Failed to clean up temp file {tmp_path}: {e}")
 
     async def transcribe_file(self, file_path: str) -> dict:
         """Transcribe audio from file.
@@ -138,36 +126,25 @@ class WhisperSTTService:
         Returns:
             Transcription results dictionary.
         """
-        if not self._loaded:
-            await self.load_model()
-
-        def _transcribe():
-            segments, info = self.model.transcribe(
-                file_path,
-                language=self.language,
-                beam_size=5,
-                best_of=5,
+        if self.stt_provider is None:
+            raise RuntimeError(
+                "STT provider not available. Ensure faster-whisper is installed."
             )
-            text = "".join(segment.text for segment in segments)
-            confidences = [segment.confidence for segment in segments]
-            avg_confidence = (
-                sum(confidences) / len(confidences) if confidences else 0.0
-            )
-            return {
-                "text": text,
-                "language": info.language,
-                "confidence": avg_confidence,
-            }
 
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, _transcribe)
-        logger.info(f"Transcribed file {file_path}: {result['text'][:100]}")
-        return result
+        request = STTRequest(
+            audio_file_path=file_path,
+            language=self.language,
+        )
+        response = await self.stt_provider.transcribe(request)
+
+        logger.info(f"Transcribed file {file_path}: {response.text[:100]}")
+
+        return {
+            "text": response.text,
+            "language": response.language or "unknown",
+            "confidence": 0.0,
+        }
 
     def unload_model(self) -> None:
-        """Unload the model from memory."""
-        if self._loaded:
-            del self.model
-            self.model = None
-            self._loaded = False
-            logger.info("Unloaded Whisper model")
+        """Unload the model from memory (no-op with mellona)."""
+        logger.info("STT service model unload requested (mellona manages lifecycle)")

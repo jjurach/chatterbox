@@ -81,6 +81,14 @@ async def main(debug: bool = False, verbose: bool = False) -> None:
         debug: Enable debug mode with detailed LangChain logging
         verbose: Enable verbose logging for protocol messages and service details
     """
+    # Initialize mellona configuration
+    from mellona import get_config
+    from chatterbox.config import get_settings
+
+    mellona_config_path = get_settings().get_mellona_config_path()
+    get_config(config_chain=[str(mellona_config_path)])
+    logger.info(f"Loaded mellona config from {mellona_config_path}")
+
     # Enable LangChain debugging if requested
     if debug:
         langchain_globals.set_debug(True)
@@ -103,8 +111,6 @@ async def main(debug: bool = False, verbose: bool = False) -> None:
         stt_model=settings.stt_model,
         stt_device=settings.stt_device,
         tts_voice=settings.tts_voice,
-        whisper_cache_dir=settings.whisper_cache_dir,
-        piper_cache_dir=settings.piper_cache_dir,
     )
 
     # Set up graceful shutdown
@@ -200,30 +206,6 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         default=settings.rest_port,
         help="REST API server port (default: 8080)",
     )
-    parser.add_argument(
-        "--whisper-model",
-        type=str,
-        default="small.en",
-        help="Whisper model size (tiny, base, small, medium, large; default: small.en)",
-    )
-    parser.add_argument(
-        "--piper-voice",
-        type=str,
-        default="en_US-danny-low",
-        help="Piper voice name (default: en_US-danny-low)",
-    )
-    parser.add_argument(
-        "--whisper-cache-dir",
-        type=str,
-        default=None,
-        help="Cache directory for Whisper models (default: ~/.cache/chatterbox/whisper)",
-    )
-    parser.add_argument(
-        "--piper-cache-dir",
-        type=str,
-        default=None,
-        help="Cache directory for Piper voices (default: ~/.cache/chatterbox/piper)",
-    )
 
 
 def apply_cli_settings(args: argparse.Namespace) -> None:
@@ -236,18 +218,6 @@ def apply_cli_settings(args: argparse.Namespace) -> None:
 
     if args.rest_port != settings.rest_port:
         settings.rest_port = args.rest_port
-
-    if args.whisper_model != "small.en":
-        settings.stt_model = args.whisper_model
-
-    if args.piper_voice != "en_US-danny-low":
-        settings.tts_voice = args.piper_voice
-
-    if args.whisper_cache_dir:
-        settings.whisper_cache_dir = args.whisper_cache_dir
-
-    if args.piper_cache_dir:
-        settings.piper_cache_dir = args.piper_cache_dir
 
 
 def cmd_serve(args: argparse.Namespace) -> None:

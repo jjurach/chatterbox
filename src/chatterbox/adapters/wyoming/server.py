@@ -50,8 +50,6 @@ class VoiceAssistantServer(AsyncEventHandler):
         stt_model: str = "base",
         stt_device: str = "cpu",
         tts_voice: str = "en_US-lessac-medium",
-        whisper_cache_dir: Optional[str] = None,
-        piper_cache_dir: Optional[str] = None,
     ):
         """Initialize the Wyoming voice assistant server handler.
 
@@ -68,8 +66,6 @@ class VoiceAssistantServer(AsyncEventHandler):
             stt_model: Whisper model size (tiny, base, small, medium, large)
             stt_device: Device for STT (cpu, cuda)
             tts_voice: Piper voice name
-            whisper_cache_dir: Cache directory for Whisper models
-            piper_cache_dir: Cache directory for Piper voices
         """
         super().__init__(reader, writer)
 
@@ -104,13 +100,11 @@ class VoiceAssistantServer(AsyncEventHandler):
             self.stt_service = WhisperSTTService(
                 model_size=stt_model,
                 device=stt_device,
-                cache_dir=whisper_cache_dir,
             )
 
         if mode in ("tts_only", "combined", "full"):
             self.tts_service = PiperTTSService(
                 voice=tts_voice,
-                cache_dir=piper_cache_dir,
             )
 
         logger.info(f"Connection handler initialized (mode: {mode})")
@@ -522,8 +516,6 @@ class WyomingServer:
         stt_model: str = "base",
         stt_device: str = "cpu",
         tts_voice: str = "en_US-lessac-medium",
-        whisper_cache_dir: Optional[str] = None,
-        piper_cache_dir: Optional[str] = None,
     ):
         """Initialize the Wyoming server.
 
@@ -540,8 +532,6 @@ class WyomingServer:
             stt_model: Whisper model size (tiny, base, small, medium, large)
             stt_device: Device for STT (cpu, cuda)
             tts_voice: Piper voice name
-            whisper_cache_dir: Cache directory for Whisper models
-            piper_cache_dir: Cache directory for Piper voices
         """
         self.host = host
         self.port = port
@@ -555,8 +545,6 @@ class WyomingServer:
         self.stt_model = stt_model
         self.stt_device = stt_device
         self.tts_voice = tts_voice
-        self.whisper_cache_dir = whisper_cache_dir
-        self.piper_cache_dir = piper_cache_dir
 
     def handler_factory(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -582,8 +570,6 @@ class WyomingServer:
             stt_model=self.stt_model,
             stt_device=self.stt_device,
             tts_voice=self.tts_voice,
-            whisper_cache_dir=self.whisper_cache_dir,
-            piper_cache_dir=self.piper_cache_dir,
         )
 
     async def _validate_ollama_connection(self) -> bool:

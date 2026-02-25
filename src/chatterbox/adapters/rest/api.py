@@ -279,22 +279,25 @@ def create_app(
 
     @app.on_event("startup")
     async def startup_event():
-        """Load models on startup."""
+        """Initialize services on startup."""
+        # Initialize mellona config
+        from mellona import get_config
+        from chatterbox.config import get_settings
+
+        mellona_config_path = get_settings().get_mellona_config_path()
+        get_config(config_chain=[str(mellona_config_path)])
+        logger.info(f"Loaded mellona config from {mellona_config_path}")
+
         if stt_service:
-            logger.info("Preloading STT model...")
-            await stt_service.load_model()
+            logger.info("STT service initialized")
 
         if tts_service:
-            logger.info("Preloading TTS voice...")
-            await tts_service.load_voice()
+            logger.info("TTS service initialized")
 
     @app.on_event("shutdown")
     async def shutdown_event():
         """Cleanup on shutdown."""
-        if stt_service:
-            stt_service.unload_model()
-        if tts_service:
-            tts_service.unload_voice()
+        logger.info("Shutting down REST API")
 
     return app
 
