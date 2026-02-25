@@ -43,6 +43,7 @@ class Settings(BaseSettings):
 
     # Mellona configuration
     mellona_config_path: str | None = None  # Path to mellona config file
+    mellona_profile: str = "default"  # Which mellona LLM profile to use
 
     model_config = SettingsConfigDict(
         env_prefix="CHATTERBOX_",

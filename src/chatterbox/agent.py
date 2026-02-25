@@ -7,11 +7,13 @@ that powers the voice assistant's intelligent response generation.
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Optional
 
 from langchain_classic.agents import initialize_agent, AgentExecutor
 from langchain_classic.memory import ConversationBufferWindowMemory
 from langchain_openai import ChatOpenAI
+from mellona import MellonaConfig
 
 from chatterbox.observability import ObservabilityHandler
 from chatterbox.tools import get_available_tools
@@ -40,30 +42,65 @@ class VoiceAssistantAgent:
         conversation_window_size: int = 3,
         debug: bool = False,
         verbose: bool = False,
+        mellona_config_path: Optional[str] = None,
+        mellona_profile: str = "default",
     ):
         """Initialize the voice assistant agent.
 
         Args:
-            ollama_base_url: Base URL for Ollama's OpenAI-compatible API
-            ollama_model: The model name to use from Ollama
-            ollama_temperature: Temperature parameter for response generation (0.0-1.0)
+            ollama_base_url: Base URL for Ollama's OpenAI-compatible API (legacy, use mellona config)
+            ollama_model: The model name to use from Ollama (legacy, use mellona config)
+            ollama_temperature: Temperature parameter for response generation (legacy, use mellona config)
             conversation_window_size: Number of messages to keep in conversation memory
             debug: Enable debug mode with detailed observability logging
             verbose: Enable verbose logging for LLM interactions
+            mellona_config_path: Path to mellona config file. If None, uses default discovery
+            mellona_profile: Which mellona LLM profile to use (default: "default")
         """
-        self.ollama_base_url = ollama_base_url
-        self.ollama_model = ollama_model
-        self.ollama_temperature = ollama_temperature
         self.conversation_window_size = conversation_window_size
         self.debug = debug
         self.verbose = verbose
 
+        # Load LLM configuration from mellona
+        config_path = mellona_config_path
+        if config_path is None:
+            # Use default path from settings
+            from chatterbox.config import get_settings
+            settings = get_settings()
+            config_path = settings.get_mellona_config_path()
+
+        # Only pass config_chain if path exists
+        config_chain = None
+        if config_path and Path(config_path).exists():
+            config_chain = [config_path]
+
+        mellona_config = MellonaConfig(config_chain=config_chain)
+        profile = mellona_config.get_profile(mellona_profile)
+
+        # Extract LLM configuration from profile
+        base_url = profile.metadata.get('base_url', ollama_base_url)
+        model = profile.model or ollama_model
+
+        # Convert temperature to float if it's a string
+        temperature = profile.temperature
+        if isinstance(temperature, str):
+            try:
+                temperature = float(temperature)
+            except (ValueError, TypeError):
+                temperature = ollama_temperature
+        elif temperature is None:
+            temperature = ollama_temperature
+
+        self.ollama_base_url = base_url
+        self.ollama_model = model
+        self.ollama_temperature = temperature
+
         # Initialize the language model
         self.llm = ChatOpenAI(
-            base_url=ollama_base_url,
+            base_url=base_url,
             api_key="ollama",
-            model=ollama_model,
-            temperature=ollama_temperature,
+            model=model,
+            temperature=temperature,
         )
 
         # Initialize conversation memory (keeps last N exchanges)
