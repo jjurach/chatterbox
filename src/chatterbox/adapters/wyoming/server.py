@@ -81,6 +81,9 @@ class VoiceAssistantServer(AsyncEventHandler):
 
         # Audio buffer for STT
         self.audio_buffer = bytearray()
+        self.audio_rate = 16000  # Default sample rate
+        self.audio_width = 2     # Default: 2 bytes per sample
+        self.audio_channels = 1  # Default: mono
 
         # Initialize services based on mode
         self.agent: Optional[VoiceAssistantAgent] = None
@@ -97,7 +100,7 @@ class VoiceAssistantServer(AsyncEventHandler):
                 verbose=verbose,
             )
 
-        if mode in ("stt_only", "combined"):
+        if mode in ("stt_only", "combined", "full"):
             self.stt_service = WhisperSTTService(
                 model_size=stt_model,
                 device=stt_device,
@@ -152,6 +155,19 @@ class VoiceAssistantServer(AsyncEventHandler):
             logger.debug("Audio stream started")
             if self.debug or self.verbose:
                 logger.info(f"[{timestamp}] [WYOMING] AudioStart event received")
+            # Store audio metadata from AudioStart event
+            if isinstance(event, AudioStart):
+                self.audio_rate = event.rate
+                self.audio_width = event.width
+                self.audio_channels = event.channels
+            else:
+                # Handle generic Event object
+                data = getattr(event, 'data', {}) or {}
+                self.audio_rate = data.get('rate', self.audio_rate)
+                self.audio_width = data.get('width', self.audio_width)
+                self.audio_channels = data.get('channels', self.audio_channels)
+            if self.verbose:
+                logger.info(f"[STT] Audio format: {self.audio_rate} Hz, {self.audio_width * 8}-bit, {self.audio_channels} channels")
             self.audio_buffer.clear()
             return True
 
@@ -220,14 +236,11 @@ class VoiceAssistantServer(AsyncEventHandler):
 
         # Speech recognition events
         if isinstance(event, Transcribe) or (hasattr(event, 'type') and event.type == "transcribe"):
-            logger.debug("Transcription requested")
+            logger.debug("Transcription requested (ignoring explicit transcribe, using auto-transcribe on AudioStop)")
             if self.debug:
-                logger.info(f"[{timestamp}] [WYOMING] Transcribe event received")
-            response_event = await self._handle_transcribe(Transcribe())
-            if response_event:
-                # Convert Transcript wrapper to Event for transmission
-                event_to_send = response_event.event()
-                await self.write_event(event_to_send)
+                logger.info(f"[{timestamp}] [WYOMING] Transcribe event received (auto-transcribe on AudioStop)")
+            # Don't respond to explicit Transcribe events - audio comes after Transcribe
+            # in the Wyoming protocol, so we'll transcribe when AudioStop is received
             return True
 
         if isinstance(event, Transcript):
@@ -303,7 +316,10 @@ class VoiceAssistantServer(AsyncEventHandler):
 
             # Transcribe the buffered audio
             start_time = time.time()
-            result = await self.stt_service.transcribe(bytes(self.audio_buffer))
+            result = await self.stt_service.transcribe(
+                bytes(self.audio_buffer),
+                sample_rate=self.audio_rate
+            )
             processing_time = time.time() - start_time
 
             transcript_text = result.get('text', '')
@@ -638,7 +654,7 @@ class WyomingServer:
                 )
 
         # Pre-load STT/TTS models before accepting connections
-        if self.mode in ("stt_only", "combined"):
+        if self.mode in ("stt_only", "combined", "full"):
             logger.info(f"Initializing STT model: {self.stt_model}...")
             start_time = time.time()
             try:

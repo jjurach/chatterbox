@@ -9,6 +9,7 @@ from typing import Optional
 
 import numpy as np
 from faster_whisper import WhisperModel
+from scipy import signal
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,13 @@ class WhisperSTTService:
         # Convert bytes to numpy array
         audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32)
         audio_array /= 32768.0  # Normalize to [-1, 1]
+
+        # Resample if necessary (Whisper expects 16kHz)
+        target_sr = 16000
+        if sample_rate != target_sr:
+            num_samples = int(len(audio_array) * target_sr / sample_rate)
+            audio_array = signal.resample(audio_array, num_samples)
+            logger.debug(f"Resampled audio from {sample_rate}Hz to {target_sr}Hz")
 
         # Run transcription in executor
         def _transcribe():
