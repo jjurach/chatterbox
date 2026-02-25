@@ -39,6 +39,7 @@ class VoiceAssistantAgent:
         ollama_temperature: float = 0.7,
         conversation_window_size: int = 3,
         debug: bool = False,
+        verbose: bool = False,
     ):
         """Initialize the voice assistant agent.
 
@@ -48,12 +49,14 @@ class VoiceAssistantAgent:
             ollama_temperature: Temperature parameter for response generation (0.0-1.0)
             conversation_window_size: Number of messages to keep in conversation memory
             debug: Enable debug mode with detailed observability logging
+            verbose: Enable verbose logging for LLM interactions
         """
         self.ollama_base_url = ollama_base_url
         self.ollama_model = ollama_model
         self.ollama_temperature = ollama_temperature
         self.conversation_window_size = conversation_window_size
         self.debug = debug
+        self.verbose = verbose
 
         # Initialize the language model
         self.llm = ChatOpenAI(
@@ -93,6 +96,8 @@ class VoiceAssistantAgent:
         )
         if debug:
             logger.info("Debug mode enabled with observability logging")
+        if verbose:
+            logger.info("Verbose mode enabled - LLM interactions will be logged")
 
     async def process_input(self, user_input: str) -> str:
         """Process user input through the agent.
@@ -108,16 +113,28 @@ class VoiceAssistantAgent:
         Raises:
             RuntimeError: If there's an error processing the input
         """
+        import time
+
         try:
             logger.debug(f"Processing user input: {user_input}")
 
+            if self.verbose:
+                logger.info(f"[LLM] Sending prompt to {self.ollama_model}: '{user_input}'")
+
             # Run the agent in a thread pool since it's synchronous
             loop = asyncio.get_event_loop()
+            start_time = time.time()
             response = await loop.run_in_executor(
                 None, self.agent.run, user_input
             )
+            elapsed_time = time.time() - start_time
 
             logger.info(f"Agent response: {response}")
+
+            if self.verbose:
+                logger.info(f"[LLM] Response from {self.ollama_model}: '{response}'")
+                logger.info(f"[LLM] Response time: {elapsed_time:.2f}s")
+
             return response
 
         except Exception as e:

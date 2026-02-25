@@ -16,7 +16,10 @@ Architecture:
 import argparse
 import asyncio
 import logging
+import os
+import pathlib
 import signal
+import sys
 from typing import Any
 
 from langchain_core import globals as langchain_globals
@@ -65,7 +68,7 @@ async def run_rest_server(debug: bool = False) -> None:
     await server.serve()
 
 
-async def main(debug: bool = False) -> None:
+async def main(debug: bool = False, verbose: bool = False) -> None:
     """Main entry point for the voice assistant.
 
     Handles:
@@ -76,11 +79,15 @@ async def main(debug: bool = False) -> None:
 
     Args:
         debug: Enable debug mode with detailed LangChain logging
+        verbose: Enable verbose logging for protocol messages and service details
     """
     # Enable LangChain debugging if requested
     if debug:
         langchain_globals.set_debug(True)
         logger.info("LangChain debug mode enabled")
+
+    if verbose:
+        logger.info("Verbose logging enabled")
 
     # Create Wyoming server with configuration
     server = WyomingServer(
@@ -91,6 +98,7 @@ async def main(debug: bool = False) -> None:
         ollama_temperature=settings.ollama_temperature,
         conversation_window_size=settings.conversation_window_size,
         debug=debug,
+        verbose=verbose,
         mode=settings.server_mode,
         stt_model=settings.stt_model,
         stt_device=settings.stt_device,
@@ -163,15 +171,17 @@ async def main(debug: bool = False) -> None:
         raise
 
 
-def cli_main() -> None:
-    """Entry point for the chatterbox-server console script."""
-    parser = argparse.ArgumentParser(
-        description="Wyoming Voice Assistant Server with STT/TTS"
-    )
+def add_common_args(parser: argparse.ArgumentParser) -> None:
+    """Add common arguments to serve and start subcommands."""
     parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug mode with detailed LangChain logging",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging (Wyoming protocol messages, STT/TTS details, LLM interactions)",
     )
     parser.add_argument(
         "--mode",
@@ -214,9 +224,10 @@ def cli_main() -> None:
         default=None,
         help="Cache directory for Piper voices (default: ~/.cache/chatterbox/piper)",
     )
-    args = parser.parse_args()
 
-    # Override settings with CLI arguments if provided
+
+def apply_cli_settings(args: argparse.Namespace) -> None:
+    """Apply CLI arguments to settings."""
     if args.mode != settings.server_mode:
         settings.server_mode = args.mode
 
@@ -226,21 +237,153 @@ def cli_main() -> None:
     if args.rest_port != settings.rest_port:
         settings.rest_port = args.rest_port
 
-    # Override model settings
     if args.whisper_model != "small.en":
         settings.stt_model = args.whisper_model
 
     if args.piper_voice != "en_US-danny-low":
         settings.tts_voice = args.piper_voice
 
-    # Store cache directories in settings for later use
     if args.whisper_cache_dir:
         settings.whisper_cache_dir = args.whisper_cache_dir
 
     if args.piper_cache_dir:
         settings.piper_cache_dir = args.piper_cache_dir
 
-    asyncio.run(main(debug=args.debug))
+
+def cmd_serve(args: argparse.Namespace) -> None:
+    """Run chatterbox in foreground (serve subcommand)."""
+    apply_cli_settings(args)
+    asyncio.run(main(debug=args.debug, verbose=args.verbose))
+
+
+def cmd_start(args: argparse.Namespace) -> None:
+    """Start chatterbox as a background daemon (start subcommand)."""
+    apply_cli_settings(args)
+
+    # Determine log and pid file paths
+    log_dir = pathlib.Path(args.log_file).parent if args.log_file else pathlib.Path("logs")
+    pid_file = pathlib.Path(args.pid_file) if args.pid_file else log_dir / "chatterbox.pid"
+    log_file = pathlib.Path(args.log_file) if args.log_file else log_dir / "chatterbox.log"
+
+    # Create logs directory if it doesn't exist
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Fork to background
+    pid = os.fork()
+    if pid > 0:
+        # Parent process: print PID and exit
+        logger.info(f"Started chatterbox daemon with PID {pid}")
+        print(f"Chatterbox started with PID {pid}")
+        print(f"Log file: {log_file}")
+        print(f"PID file: {pid_file}")
+        return
+
+    # Child process continues
+    os.setsid()  # Create new session
+    os.umask(0)
+
+    # Redirect output to log file
+    with open(log_file, "a") as f:
+        os.dup2(f.fileno(), sys.stdout.fileno())
+        os.dup2(f.fileno(), sys.stderr.fileno())
+
+    # Write PID file
+    with open(pid_file, "w") as f:
+        f.write(str(os.getpid()))
+
+    try:
+        asyncio.run(main(debug=args.debug, verbose=args.verbose))
+    finally:
+        # Clean up PID file on exit
+        try:
+            pid_file.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def cmd_stop(args: argparse.Namespace) -> None:
+    """Stop the background chatterbox daemon (stop subcommand)."""
+    pid_file = pathlib.Path(args.pid_file) if args.pid_file else pathlib.Path("logs/chatterbox.pid")
+
+    if not pid_file.exists():
+        logger.error(f"PID file not found: {pid_file}")
+        print(f"Error: PID file not found: {pid_file}")
+        sys.exit(1)
+
+    try:
+        with open(pid_file, "r") as f:
+            pid = int(f.read().strip())
+
+        os.kill(pid, signal.SIGTERM)
+        logger.info(f"Sent SIGTERM to process {pid}")
+        print(f"Sent SIGTERM to chatterbox (PID {pid})")
+    except (ValueError, FileNotFoundError) as e:
+        logger.error(f"Error reading PID file: {e}")
+        print(f"Error reading PID file: {e}")
+        sys.exit(1)
+    except ProcessLookupError:
+        logger.error(f"Process {pid} not found")
+        print(f"Error: Process {pid} not found")
+        sys.exit(1)
+
+
+def cli_main() -> None:
+    """Entry point for the chatterbox console script with subcommands."""
+    parser = argparse.ArgumentParser(
+        description="Wyoming Voice Assistant Server with STT/TTS"
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # serve subcommand
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Run chatterbox in foreground"
+    )
+    add_common_args(serve_parser)
+    serve_parser.set_defaults(func=cmd_serve)
+
+    # start subcommand
+    start_parser = subparsers.add_parser(
+        "start",
+        help="Start chatterbox as a background daemon"
+    )
+    add_common_args(start_parser)
+    start_parser.add_argument(
+        "--log-file",
+        type=str,
+        default=None,
+        help="Log file path (default: ./logs/chatterbox.log)",
+    )
+    start_parser.add_argument(
+        "--pid-file",
+        type=str,
+        default=None,
+        help="PID file path (default: ./logs/chatterbox.pid)",
+    )
+    start_parser.set_defaults(func=cmd_start)
+
+    # stop subcommand
+    stop_parser = subparsers.add_parser(
+        "stop",
+        help="Stop the background chatterbox daemon"
+    )
+    stop_parser.add_argument(
+        "--pid-file",
+        type=str,
+        default=None,
+        help="PID file path (default: ./logs/chatterbox.pid)",
+    )
+    stop_parser.set_defaults(func=cmd_stop)
+
+    args = parser.parse_args()
+
+    # If no command is provided, default to serve
+    if not hasattr(args, "func"):
+        parser.print_help()
+        sys.exit(1)
+
+    args.func(args)
 
 
 if __name__ == "__main__":

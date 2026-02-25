@@ -70,7 +70,7 @@ test = [
 ]
 
 [project.scripts]
-chatterbox-server = "chatterbox.main:cli_main"
+chatterbox = "chatterbox.main:cli_main"
 chatterbox-wyoming-client = "demos.wyoming_client_test:main"
 chatterbox-test-agent = "demos.direct_agent:main"
 wyoming-tester = "wyoming_tester.cli:main"

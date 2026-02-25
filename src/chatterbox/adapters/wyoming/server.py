@@ -45,6 +45,7 @@ class VoiceAssistantServer(AsyncEventHandler):
         ollama_temperature: float = 0.7,
         conversation_window_size: int = 3,
         debug: bool = False,
+        verbose: bool = False,
         mode: str = "full",
         stt_model: str = "base",
         stt_device: str = "cpu",
@@ -62,6 +63,7 @@ class VoiceAssistantServer(AsyncEventHandler):
             ollama_temperature: Model temperature for response generation
             conversation_window_size: Number of messages to keep in memory
             debug: Enable debug mode with enhanced Wyoming event logging
+            verbose: Enable verbose logging for protocol messages and service details
             mode: Server mode - 'full' (VA), 'stt_only', 'tts_only', or 'combined'
             stt_model: Whisper model size (tiny, base, small, medium, large)
             stt_device: Device for STT (cpu, cuda)
@@ -74,6 +76,7 @@ class VoiceAssistantServer(AsyncEventHandler):
         # Server settings
         self.ollama_base_url = ollama_base_url
         self.debug = debug
+        self.verbose = verbose
         self.mode = mode
 
         # Audio buffer for STT
@@ -91,6 +94,7 @@ class VoiceAssistantServer(AsyncEventHandler):
                 ollama_temperature=ollama_temperature,
                 conversation_window_size=conversation_window_size,
                 debug=debug,
+                verbose=verbose,
             )
 
         if mode in ("stt_only", "combined"):
@@ -137,7 +141,7 @@ class VoiceAssistantServer(AsyncEventHandler):
 
         # Debug: Log detailed event information
         logger.debug(f"handle_event: type={event_type}, event.type={event_attr_type}")
-        if self.debug:
+        if self.debug or self.verbose:
             logger.info(f"[{timestamp}] [EVENT] type={event_type}, event.type={event_attr_type}, event.data={getattr(event, 'data', 'N/A')}")
 
         # Handle both specific event types (AudioStart, AudioChunk, etc.) and generic Event objects with type attributes
@@ -146,7 +150,7 @@ class VoiceAssistantServer(AsyncEventHandler):
         # Audio stream events - handle both specific types and generic Events
         if isinstance(event, AudioStart) or (hasattr(event, 'type') and event.type == "audio-start"):
             logger.debug("Audio stream started")
-            if self.debug:
+            if self.debug or self.verbose:
                 logger.info(f"[{timestamp}] [WYOMING] AudioStart event received")
             self.audio_buffer.clear()
             return True
@@ -161,7 +165,7 @@ class VoiceAssistantServer(AsyncEventHandler):
 
             if audio_bytes:
                 logger.info(f"Buffering audio chunk: {len(audio_bytes)} bytes (total: {len(self.audio_buffer) + len(audio_bytes)} bytes)")
-                if self.debug:
+                if self.debug or self.verbose:
                     logger.debug(
                         f"[{timestamp}] [WYOMING] AudioChunk: {len(audio_bytes)} bytes"
                     )
@@ -278,6 +282,8 @@ class VoiceAssistantServer(AsyncEventHandler):
         Returns:
             A Transcript event with transcribed text
         """
+        import time
+
         if not self.stt_service:
             logger.error("STT service not available in this mode")
             return None
@@ -287,14 +293,28 @@ class VoiceAssistantServer(AsyncEventHandler):
                 logger.warning("No audio data to transcribe")
                 return Transcript(text="")
 
-            logger.info(f"Starting Whisper transcription on {len(self.audio_buffer)} bytes of audio")
-            # Transcribe the buffered audio
-            result = await self.stt_service.transcribe(bytes(self.audio_buffer))
+            audio_bytes = len(self.audio_buffer)
+            logger.info(f"Starting Whisper transcription on {audio_bytes} bytes of audio")
 
-            logger.info(f"Whisper transcription complete: '{result.get('text', '')}'")
+            if self.verbose:
+                # Calculate audio duration (assuming 16-bit, 16kHz audio)
+                audio_duration = audio_bytes / (2 * 16000)
+                logger.info(f"[STT] Audio duration: {audio_duration:.2f}s ({audio_bytes} bytes)")
+
+            # Transcribe the buffered audio
+            start_time = time.time()
+            result = await self.stt_service.transcribe(bytes(self.audio_buffer))
+            processing_time = time.time() - start_time
+
+            transcript_text = result.get('text', '')
+            logger.info(f"Whisper transcription complete: '{transcript_text}'")
+
+            if self.verbose:
+                logger.info(f"[STT] Processing time: {processing_time:.2f}s")
+                logger.info(f"[STT] Transcript result: '{transcript_text}'")
 
             return Transcript(
-                text=result["text"],
+                text=transcript_text,
             )
 
         except Exception as e:
@@ -355,20 +375,33 @@ class VoiceAssistantServer(AsyncEventHandler):
         Args:
             text: The text to synthesize to speech
         """
+        import time
+
         if not self.tts_service:
             logger.error("TTS service not available in this mode")
             return
 
         try:
             logger.info(f"Starting Piper TTS synthesis: '{text}'")
+
+            if self.verbose:
+                logger.info(f"[TTS] Text input: '{text}' ({len(text)} characters)")
+
             # Generate audio from text
+            start_time = time.time()
             audio_bytes = await self.tts_service.synthesize(text)
+            synthesis_time = time.time() - start_time
 
             if not audio_bytes:
                 logger.warning("TTS returned empty audio")
                 return
 
-            logger.info(f"Piper TTS synthesis complete: {len(audio_bytes)} bytes")
+            output_size = len(audio_bytes)
+            logger.info(f"Piper TTS synthesis complete: {output_size} bytes")
+
+            if self.verbose:
+                logger.info(f"[TTS] Synthesis time: {synthesis_time:.2f}s")
+                logger.info(f"[TTS] Output size: {output_size} bytes")
 
             # Send AudioStart with metadata
             # Piper generates 22050 Hz, 16-bit (2 bytes) mono audio
@@ -379,6 +412,9 @@ class VoiceAssistantServer(AsyncEventHandler):
             )
             await self.write_event(audio_start.event())
             logger.debug("Sent AudioStart event")
+
+            if self.verbose:
+                logger.debug("[WYOMING] Sent AudioStart event")
 
             # Send audio in chunks (optimal chunk size for network streaming)
             chunk_size = 4096
@@ -392,6 +428,9 @@ class VoiceAssistantServer(AsyncEventHandler):
             audio_stop = AudioStop()
             await self.write_event(audio_stop.event())
             logger.info("Sent AudioStop event - TTS stream complete")
+
+            if self.verbose:
+                logger.debug("[WYOMING] Sent AudioStop event")
 
         except Exception as e:
             logger.error(f"Error synthesizing audio: {e}", exc_info=True)
@@ -462,6 +501,7 @@ class WyomingServer:
         ollama_temperature: float = 0.7,
         conversation_window_size: int = 3,
         debug: bool = False,
+        verbose: bool = False,
         mode: str = "full",
         stt_model: str = "base",
         stt_device: str = "cpu",
@@ -479,6 +519,7 @@ class WyomingServer:
             ollama_temperature: Model temperature for response generation
             conversation_window_size: Number of messages to keep in memory
             debug: Enable debug mode with enhanced Wyoming event logging
+            verbose: Enable verbose logging for protocol messages and service details
             mode: Server mode - 'full' (VA), 'stt_only', 'tts_only', or 'combined'
             stt_model: Whisper model size (tiny, base, small, medium, large)
             stt_device: Device for STT (cpu, cuda)
@@ -493,6 +534,7 @@ class WyomingServer:
         self.ollama_temperature = ollama_temperature
         self.conversation_window_size = conversation_window_size
         self.debug = debug
+        self.verbose = verbose
         self.mode = mode
         self.stt_model = stt_model
         self.stt_device = stt_device
@@ -504,6 +546,13 @@ class WyomingServer:
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> VoiceAssistantServer:
         """Create a new handler for each connection."""
+        # Log connection with client address if available
+        try:
+            peer_addr = writer.get_extra_info('peername')
+            logger.info(f"New Wyoming connection from {peer_addr}")
+        except Exception:
+            logger.info("New Wyoming connection established")
+
         return VoiceAssistantServer(
             reader=reader,
             writer=writer,
@@ -512,6 +561,7 @@ class WyomingServer:
             ollama_temperature=self.ollama_temperature,
             conversation_window_size=self.conversation_window_size,
             debug=self.debug,
+            verbose=self.verbose,
             mode=self.mode,
             stt_model=self.stt_model,
             stt_device=self.stt_device,
