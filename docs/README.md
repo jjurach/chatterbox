@@ -12,6 +12,7 @@ Complete documentation for Cackle (Chatterbox).
 - Read **[README.md](../README.md)** - Project overview
 - See **[Quickstart](quickstart.md)** - Getting started
 - Review **[Architecture](architecture.md)** - System design
+- Check **[Mellona Integration](mellona-migration-notes.md)** - STT/TTS setup with mellona
 
 ## For AI Agents
 
@@ -32,6 +33,13 @@ Complete documentation for Cackle (Chatterbox).
 - **[Implementation Reference](implementation-reference.md)** - Implementation patterns
 - **[Adapters](adapters.md)** - Protocol adapters (Wyoming, REST)
 - **[Tools](tools.md)** - Tool system documentation
+
+## Speech and Audio
+
+- **[Mellona Migration Notes](mellona-migration-notes.md)** - Chatterbox-specific mellona setup
+- **[Mellona STT/TTS Integration](mellona-stt-tts-integration.md)** - Full Mellona API guide
+- **[Mellona Provider Reference](mellona-provider-reference.md)** - All STT/TTS providers
+- **[Mellona Config Example](mellona-config-example.yaml)** - Example configuration
 
 ## System Prompts (Agent Kernel)
 

@@ -1,0 +1,69 @@
+# Example Mellona Configuration for Chatterbox
+
+## Local-Only Configuration (FasterWhisper + Piper)
+# Use this for development and privacy-critical applications with no cloud dependencies
+
+# providers:
+#   faster_whisper:
+#     model: base              # tiny, base, small, medium, large
+#     device: cpu              # cpu or cuda for GPU
+#   piper:
+#     voice: en_US-lessac-medium
+#     sample_rate: 22050
+#
+# stt_profiles:
+#   default:
+#     provider: faster_whisper
+#     model: base
+#
+# tts_profiles:
+#   default:
+#     provider: piper
+#     voice: en_US-lessac-medium
+
+
+## Cloud STT Configuration (Groq STT)
+# Use this for production transcription with faster API response
+
+# providers:
+#   groq:
+#     api_key: ${GROQ_API_KEY}
+#   piper:
+#     voice: en_US-lessac-medium
+#
+# stt_profiles:
+#   default:
+#     provider: groq
+#     # model: whisper-large-v3  (optional, defaults to this)
+#
+# tts_profiles:
+#   default:
+#     provider: piper
+
+
+## Mixed Configuration with Profile Fallbacks
+# Use this to combine cloud and local providers with automatic fallback
+
+providers:
+  groq:
+    api_key: ${GROQ_API_KEY}
+  faster_whisper:
+    model: base
+    device: cpu
+  piper:
+    voice: en_US-lessac-medium
+    sample_rate: 22050
+
+stt_profiles:
+  production:
+    provider: groq
+    # Falls back to local if Groq is unavailable
+    fallback_chain: [local_whisper]
+  local:
+    provider: faster_whisper
+    model: base
+
+tts_profiles:
+  default:
+    provider: piper
+    voice: en_US-lessac-medium
