@@ -1,0 +1,42 @@
+# Mellona configuration for Chatterbox
+# Defines STT, TTS, and LLM provider configurations
+# Environment variables are substituted at startup using ${VAR_NAME} syntax
+
+# Provider configurations
+providers:
+  # Faster Whisper STT provider
+  faster_whisper:
+    model: ${CHATTERBOX_STT_MODEL:-base}
+    device: ${CHATTERBOX_STT_DEVICE:-cpu}
+    language: ${CHATTERBOX_STT_LANGUAGE:-null}
+
+  # Piper TTS provider
+  piper:
+    voice: ${CHATTERBOX_TTS_VOICE:-en_US-lessac-medium}
+    sample_rate: ${CHATTERBOX_TTS_SAMPLE_RATE:-22050}
+
+  # Ollama LLM provider
+  ollama:
+    base_url: ${CHATTERBOX_OLLAMA_BASE_URL:-http://localhost:11434/v1}
+
+# STT Profiles
+stt_profiles:
+  default:
+    provider: faster_whisper
+
+# TTS Profiles
+tts_profiles:
+  default:
+    provider: piper
+
+# LLM Profiles
+profiles:
+  default:
+    provider: ollama
+    model: ${CHATTERBOX_OLLAMA_MODEL:-llama3.1:8b}
+    temperature: ${CHATTERBOX_OLLAMA_TEMPERATURE:-0.7}
+
+# Default profile names
+default_stt_profile: default
+default_tts_profile: default
+default_profile: default

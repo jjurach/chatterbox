@@ -1,5 +1,7 @@
 """Configuration modules for Chatterbox components."""
 
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,11 +41,33 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
+    # Mellona configuration
+    mellona_config_path: str | None = None  # Path to mellona config file
+
     model_config = SettingsConfigDict(
         env_prefix="CHATTERBOX_",
         env_file=".env",
         env_file_encoding="utf-8",
     )
+
+    @classmethod
+    def _get_default_mellona_config_path(cls) -> str:
+        """Get the default path to the mellona config file.
+
+        Returns the path to mellona.yaml in the chatterbox package directory.
+        """
+        package_dir = Path(__file__).parent.parent
+        return str(package_dir / "mellona.yaml")
+
+    def get_mellona_config_path(self) -> str:
+        """Get the mellona config path, using default if not set.
+
+        Returns:
+            Path to the mellona config file.
+        """
+        if self.mellona_config_path:
+            return self.mellona_config_path
+        return self._get_default_mellona_config_path()
 
 
 def get_settings() -> Settings:
