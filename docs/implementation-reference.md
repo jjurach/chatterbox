@@ -2,6 +2,24 @@
 
 This document provides practical implementation patterns and reference implementations for Chatterbox.
 
+## Mellona Dependency
+
+Chatterbox uses **mellona** as a unified LLM provider abstraction library. Mellona is installed as a local path dependency from the sibling `../mellona` module and provides:
+
+- Configuration profiles for different LLM providers
+- Cost tracking and provider failover
+- Unified interface for LLM interactions
+
+To import mellona:
+
+```python
+from mellona import LLMProvider, Config
+
+# Use mellona for LLM operations
+```
+
+**Note:** Mellona requires `aiohttp>=3.8.0` as a transitive dependency.
+
 ## Key Patterns
 
 ### STT Service Implementation (Whisper)

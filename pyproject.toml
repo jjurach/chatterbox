@@ -29,6 +29,8 @@ classifiers = [
 ]
 
 dependencies = [
+    "mellona>=0.1.0",
+    "aiohttp>=3.8.0",
     "wyoming>=1.8.0",
     "langchain>=0.1.0",
     "langchain-openai>=0.1.0",
@@ -81,6 +83,9 @@ ha-emulator = "ha_emulator.cli:main"
 Homepage = "https://github.com/yourusername/chatterbox"
 Repository = "https://github.com/yourusername/chatterbox.git"
 Issues = "https://github.com/yourusername/chatterbox/issues"
+
+[tool.uv.sources]
+mellona = { path = "../mellona", editable = true }
 
 [tool.setuptools]
 packages = ["chatterbox", "chatterbox.audio", "chatterbox.config", "chatterbox.conversation", "chatterbox.services", "chatterbox.tools", "chatterbox.tools.builtin", "chatterbox.adapters", "chatterbox.adapters.wyoming", "chatterbox.adapters.rest", "wyoming_tester", "ha_emulator", "demos", "tests"]
