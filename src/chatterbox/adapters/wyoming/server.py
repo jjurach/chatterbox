@@ -18,7 +18,8 @@ from wyoming.server import AsyncServer, AsyncEventHandler
 from wyoming.tts import Synthesize, SynthesizeVoice
 
 from chatterbox.agent import VoiceAssistantAgent
-from chatterbox.services import WhisperSTTService, PiperTTSService
+from chatterbox.services import WhisperSTTService
+from chatterbox.services.tts import PiperTTSService
 
 logger = logging.getLogger(__name__)
 
@@ -647,7 +648,6 @@ class WyomingServer:
                 stt_service = WhisperSTTService(
                     model_size=self.stt_model,
                     device=self.stt_device,
-                    cache_dir=self.whisper_cache_dir,
                 )
                 await stt_service.load_model()
                 elapsed = time.time() - start_time
@@ -662,7 +662,6 @@ class WyomingServer:
             try:
                 tts_service = PiperTTSService(
                     voice=self.tts_voice,
-                    cache_dir=self.piper_cache_dir,
                 )
                 await tts_service.load_voice()
                 elapsed = time.time() - start_time

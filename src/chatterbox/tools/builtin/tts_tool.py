@@ -4,7 +4,7 @@ from langchain.tools import BaseTool
 from typing import Optional
 import os
 
-from chatterbox.services import PiperTTSService
+from chatterbox.services.tts import PiperTTSService
 
 
 class TTSTool(BaseTool):

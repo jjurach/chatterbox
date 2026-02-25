@@ -8,7 +8,8 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.responses import StreamingResponse
 import numpy as np
 
-from chatterbox.services import WhisperSTTService, PiperTTSService
+from chatterbox.services import WhisperSTTService
+from chatterbox.services.tts import PiperTTSService
 from chatterbox.agent import VoiceAssistantAgent
 
 logger = logging.getLogger(__name__)

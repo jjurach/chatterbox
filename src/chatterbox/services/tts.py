@@ -1,19 +1,22 @@
-"""Text-to-Speech service using Piper TTS."""
+"""Text-to-Speech service using mellona TTS providers."""
 
-import asyncio
 import logging
-import os
 import wave
 from pathlib import Path
 from typing import Optional
 
-from piper.voice import PiperVoice
+from mellona import get_manager, TTSRequest
 
 logger = logging.getLogger(__name__)
 
 
 class PiperTTSService:
-    """Text-to-Speech service using Piper TTS."""
+    """Text-to-Speech service using mellona's TTS providers.
+
+    This service wraps mellona's TTS providers (primarily Piper)
+    to maintain backward compatibility with the existing chatterbox interface.
+    Mellona handles the underlying Piper model management and caching.
+    """
 
     def __init__(
         self,
@@ -23,69 +26,43 @@ class PiperTTSService:
         sample_rate: int = 22050,
         cache_dir: Optional[str] = None,
     ):
-        """Initialize Piper TTS service.
+        """Initialize TTS service using mellona.
 
         Args:
-            voice: Name of the Piper voice.
-            model_path: Path to the ONNX model file. If None, inferred from voice.
-            config_path: Path to the ONNX config JSON file. If None, inferred from voice.
+            voice: Name of the Piper voice. Defaults to "en_US-lessac-medium".
+            model_path: Unused, kept for backward compatibility.
+            config_path: Unused, kept for backward compatibility.
             sample_rate: Sample rate in Hz. Defaults to 22050.
-            cache_dir: Directory to cache voice models. Defaults to ~/.cache/chatterbox/piper.
+            cache_dir: Directory to cache models (unused, mellona manages this).
         """
         self.voice_name = voice
-
-        # Setup cache directory
-        if cache_dir is None:
-            cache_dir = str(Path.home() / ".cache" / "chatterbox" / "piper")
+        self.sample_rate = sample_rate
+        # Backward compatibility: store these but mellona manages them
+        self.model_path = model_path
+        self.config_path = config_path
         self.cache_dir = cache_dir
-        Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
-        logger.info(f"Piper cache directory: {self.cache_dir}")
 
-        # Resolve model and config paths
-        if model_path is not None:
-            self.model_path = model_path
-        else:
-            self.model_path = os.path.join(cache_dir, f"{voice}.onnx")
+        # Get TTS provider from mellona
+        manager = get_manager()
+        self.tts_provider = manager.get_tts_provider("piper")
 
-        if config_path is not None:
-            self.config_path = config_path
-        else:
-            self.config_path = os.path.join(cache_dir, f"{voice}.json")
-
-        self._model_available = (
-            os.path.exists(self.model_path) and os.path.exists(self.config_path)
-        )
-        if not self._model_available:
+        if self.tts_provider is None:
             logger.warning(
-                "Piper voice model not found at %s — using mock synthesis. "
-                "Download the model to enable real TTS.",
-                self.model_path,
+                "Piper TTS provider not available. "
+                "Ensure piper is installed and mellona is configured."
+            )
+        else:
+            logger.info(
+                f"Initialized mellona TTS service with piper "
+                f"(voice: {voice}, sample_rate: {sample_rate})"
             )
 
-        self.sample_rate = sample_rate
-        self.voice: Optional[PiperVoice] = None
-        self._loaded = False
-
     async def load_voice(self) -> None:
-        """Load the voice model asynchronously."""
-        if self._loaded:
-            return
+        """Load the voice model asynchronously (no-op with mellona).
 
-        if self._model_available:
-            model_path = self.model_path
-            config_path = self.config_path
-
-            def _load() -> PiperVoice:
-                return PiperVoice.load(model_path, config_path=config_path)
-
-            loop = asyncio.get_event_loop()
-            self.voice = await loop.run_in_executor(None, _load)
-            logger.info(f"Loaded real Piper voice: {self.voice_name}")
-        else:
-            self.voice = _MockPiperVoice(self.voice_name)
-            logger.info(f"Loaded mock Piper voice: {self.voice_name}")
-
-        self._loaded = True
+        Mellona manages voice loading automatically.
+        """
+        logger.info("TTS voice load requested (mellona manages lifecycle)")
 
     async def synthesize(self, text: str) -> bytes:
         """Synthesize text to speech.
@@ -96,23 +73,21 @@ class PiperTTSService:
         Returns:
             Raw PCM audio bytes (S16_LE format at sample_rate).
         """
-        if not self._loaded:
-            await self.load_voice()
+        if self.tts_provider is None:
+            raise RuntimeError(
+                "TTS provider not available. Ensure piper is installed."
+            )
 
-        if self.voice is None:
-            raise RuntimeError("Voice failed to load")
+        request = TTSRequest(
+            text=text,
+            voice=self.voice_name,
+        )
+        response = await self.tts_provider.synthesize(request)
 
-        def _synth() -> bytes:
-            chunks = []
-            for audio_chunk in self.voice.synthesize(text):
-                chunks.append(audio_chunk.audio_int16_bytes)
-            return b"".join(chunks)
-
-        loop = asyncio.get_event_loop()
-        audio_bytes = await loop.run_in_executor(None, _synth)
-
-        logger.debug(f"Synthesized: {text[:50]!r} → {len(audio_bytes)} bytes")
-        return audio_bytes
+        logger.debug(
+            f"Synthesized: {text[:50]!r} → {len(response.audio_data)} bytes"
+        )
+        return response.audio_data
 
     async def synthesize_to_file(self, text: str, file_path: str) -> None:
         """Synthesize text to speech and save to file.
@@ -121,46 +96,17 @@ class PiperTTSService:
             text: Text to synthesize.
             file_path: Path to save audio file.
         """
-        if not self._loaded:
-            await self.load_voice()
+        audio_bytes = await self.synthesize(text)
 
-        def _synthesize() -> None:
-            with wave.open(file_path, "wb") as wf:
-                wf.setnchannels(1)
-                wf.setsampwidth(2)  # S16_LE format
-                wf.setframerate(self.sample_rate)
-                for audio_chunk in self.voice.synthesize(text):
-                    wf.writeframes(audio_chunk.audio_int16_bytes)
+        # Write to WAV file
+        with wave.open(file_path, "wb") as wf:
+            wf.setnchannels(1)  # Mono
+            wf.setsampwidth(2)  # S16_LE format
+            wf.setframerate(self.sample_rate)
+            wf.writeframes(audio_bytes)
 
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _synthesize)
         logger.info(f"Synthesized to file: {file_path}")
 
     def unload_voice(self) -> None:
-        """Unload the voice model from memory."""
-        if self._loaded:
-            del self.voice
-            self.voice = None
-            self._loaded = False
-            logger.info("Unloaded Piper voice")
-
-    @property
-    def is_real_voice(self) -> bool:
-        """True when a real Piper ONNX model is loaded (not mock)."""
-        return self._loaded and self._model_available
-
-
-class _MockPiperVoice:
-    """Minimal stand-in for PiperVoice used when model files are absent."""
-
-    _SILENCE_FRAMES = 1600  # 0.1 s of silence at 16 kHz (16-bit mono → 3200 bytes)
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    def synthesize(self, text: str):
-        from collections import namedtuple
-
-        AudioChunk = namedtuple("AudioChunk", ["audio_int16_bytes"])
-        # Produce a non-trivial silence buffer so downstream length checks pass
-        yield AudioChunk(audio_int16_bytes=b"\x00\x00" * self._SILENCE_FRAMES)
+        """Unload the voice model from memory (no-op with mellona)."""
+        logger.info("TTS voice unload requested (mellona manages lifecycle)")
