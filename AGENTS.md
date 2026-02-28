@@ -78,7 +78,7 @@ These files provide additional context when working on specific features:
 - **Architecture:** [docs/architecture.md](docs/architecture.md) - System design, components, and data flow
 - **Implementation Reference:** [docs/implementation-reference.md](docs/implementation-reference.md) - Code patterns, style, and conventions
 - **Workflows:** [docs/workflows.md](docs/workflows.md) - Development processes and available workflow options
-- **Tool Guides:** [docs/system-prompts/tools/](tools/) - Guides for Aider, Claude Code, and other tools
+- **Tool Guides:** [docs/system-prompts/tools/](docs/system-prompts/tools/) - Guides for Aider, Claude Code, and other tools
 
 ---
 

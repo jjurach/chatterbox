@@ -10,7 +10,7 @@ This project follows the Agent Kernel Definition of Done. **You MUST review thes
 
 ### Universal Requirements
 
-See **[Universal Definition of Done](../docs/system-prompts/principles/definition-of-done.md)** for:
+See **[Universal Definition of Done](system-prompts/principles/definition-of-done.md)** for:
 - Plan vs Reality Protocol
 - Verification as Data
 - Codebase State Integrity
@@ -20,7 +20,7 @@ See **[Universal Definition of Done](../docs/system-prompts/principles/definitio
 
 ### Python Requirements
 
-See **[Python Definition of Done](../docs/system-prompts/languages/python/definition-of-done.md)** for:
+See **[Python Definition of Done](system-prompts/languages/python/definition-of-done.md)** for:
 - Python environment & dependencies
 - Testing requirements (pytest)
 - Code quality standards

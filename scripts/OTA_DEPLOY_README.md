@@ -443,8 +443,8 @@ python scripts/ota_deploy.py --binary firmware.bin --batch test_devices.json --t
 ## Related Documentation
 
 - [ESPHome OTA Documentation](https://esphome.io/components/ota.html)
-- [ESP32 S3 Box 3 Setup](../../docs/setup.md)
-- [Device Configuration](../../firmware/voice-assistant.yaml)
+- [ESP32 S3 Box 3 Setup](../firmware/README.md)
+- [Device Configuration](../firmware/voice-assistant.yaml)
 
 ## License
 
