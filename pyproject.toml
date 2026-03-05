@@ -29,7 +29,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "mellona @ file:///../mellona",
+    "mellona @ file:../mellona",
     "aiohttp>=3.8.0",
     "wyoming>=1.8.0",
     "langchain>=0.1.0",
