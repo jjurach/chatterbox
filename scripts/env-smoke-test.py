@@ -650,7 +650,7 @@ class SmokeTest:
 
         Args:
             session: aiohttp ClientSession
-            base_url: Ollama base URL
+            base_url: Ollama base URL (e.g., http://localhost:11434)
             model: Model name to test
 
         Returns:
@@ -659,25 +659,30 @@ class SmokeTest:
         try:
             import aiohttp
 
-            # Remove /v1 suffix if present for the generate endpoint
-            api_url = base_url.replace("/v1", "")
-
             test_question = "How many are one and a quarter dozen?"
 
+            # Use OpenAI-compatible chat completions endpoint
             payload = {
                 "model": model,
-                "prompt": test_question,
+                "messages": [
+                    {"role": "user", "content": test_question}
+                ],
                 "stream": False,
             }
 
             async with session.post(
-                f"{api_url}/api/generate",
+                f"{base_url}/v1/chat/completions",
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=30)
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    response_text = data.get("response", "").strip()
+                    # Extract message content from OpenAI-compatible response
+                    choices = data.get("choices", [])
+                    if choices:
+                        response_text = choices[0].get("message", {}).get("content", "").strip()
+                    else:
+                        response_text = ""
 
                     # Test passes if model responds with any reasonable answer
                     # (contains a number, or shows reasoning about "dozen")
