@@ -43,6 +43,7 @@ Usage (standalone)::
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -52,6 +53,7 @@ from chatterbox.conversation.entity import (
     ChatterboxConversationEntity,
     ConversationInput,
 )
+from chatterbox.conversation.zeroconf import ChatterboxZeroconf
 
 logger = logging.getLogger(__name__)
 
@@ -102,18 +104,50 @@ class HealthResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def create_conversation_app(entity: ChatterboxConversationEntity) -> FastAPI:
+def create_conversation_app(
+    entity: ChatterboxConversationEntity,
+    port: int = 8765,
+    enable_zeroconf: bool = True,
+) -> FastAPI:
     """Create a FastAPI application wrapping *entity*.
 
     Args:
         entity: A fully initialised ``ChatterboxConversationEntity``.  The
             caller is responsible for building the provider, tools, and
             dispatcher before passing the entity in.
+        port: Port number for Zeroconf advertisement (default 8765).
+        enable_zeroconf: Whether to advertise via Zeroconf/mDNS (default True).
 
     Returns:
         A configured ``FastAPI`` application ready to be served or used in
         tests via ``httpx.AsyncClient(app=app, ...)``.
     """
+
+    # Create Zeroconf instance if enabled
+    zeroconf: ChatterboxZeroconf | None = None
+    if enable_zeroconf:
+        zeroconf = ChatterboxZeroconf(port=port, version="0.1.0")
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):  # type: ignore
+        """Manage application lifespan: startup and shutdown."""
+        # Startup
+        if zeroconf:
+            try:
+                zeroconf.start()
+            except Exception as e:
+                logger.error("Failed to start Zeroconf: %s", e)
+                # Don't fail startup if Zeroconf fails (not critical)
+
+        yield
+
+        # Shutdown
+        if zeroconf:
+            try:
+                zeroconf.stop()
+            except Exception as e:
+                logger.error("Error during Zeroconf shutdown: %s", e)
+
     app = FastAPI(
         title="Chatterbox Conversation API",
         description=(
@@ -122,6 +156,7 @@ def create_conversation_app(entity: ChatterboxConversationEntity) -> FastAPI:
             "requiring a running Home Assistant instance."
         ),
         version="0.1.0",
+        lifespan=lifespan,
     )
 
     # ------------------------------------------------------------------

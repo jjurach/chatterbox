@@ -22,6 +22,9 @@ from chatterbox.conversation.providers import (
 )
 from chatterbox.conversation.server import create_conversation_app
 
+# For Zeroconf lifespan tests
+AsyncClient = AsyncClient  # Re-export for clarity in test_health_endpoint_with_zeroconf
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -234,3 +237,105 @@ async def test_delete_all_sessions() -> None:
         resp = await client.delete("/conversation")
     assert resp.status_code == 204
     assert entity._histories == {}
+
+
+# ---------------------------------------------------------------------------
+# Zeroconf integration tests
+# ---------------------------------------------------------------------------
+
+
+def test_create_conversation_app_with_zeroconf_disabled() -> None:
+    """Test that create_conversation_app works with zeroconf disabled."""
+    from chatterbox.conversation.server import create_conversation_app
+
+    entity = _make_entity()
+    app = create_conversation_app(entity, enable_zeroconf=False)
+    assert app is not None
+
+
+def test_create_conversation_app_with_zeroconf_enabled() -> None:
+    """Test that create_conversation_app initializes with zeroconf enabled."""
+    from unittest.mock import patch
+    from chatterbox.conversation.server import create_conversation_app
+
+    entity = _make_entity()
+    with patch("chatterbox.conversation.server.ChatterboxZeroconf") as mock_zc:
+        app = create_conversation_app(entity, port=8765, enable_zeroconf=True)
+        assert app is not None
+        # Zeroconf should be instantiated but not started until lifespan
+        mock_zc.assert_called_once_with(port=8765, version="0.1.0")
+
+
+@pytest.mark.anyio
+async def test_create_conversation_app_lifespan_startup_success() -> None:
+    """Test that lifespan startup calls zeroconf.start()."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from chatterbox.conversation.server import create_conversation_app
+
+    entity = _make_entity()
+    with patch("chatterbox.conversation.server.ChatterboxZeroconf") as mock_zc_class:
+        mock_zc = MagicMock()
+        mock_zc_class.return_value = mock_zc
+
+        app = create_conversation_app(entity, port=8765, enable_zeroconf=True)
+
+        # Simulate app startup
+        async with app.router.lifespan_context(app):
+            # Zeroconf.start should have been called
+            mock_zc.start.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_create_conversation_app_lifespan_shutdown_success() -> None:
+    """Test that lifespan shutdown calls zeroconf.stop()."""
+    from unittest.mock import MagicMock, patch
+    from chatterbox.conversation.server import create_conversation_app
+
+    entity = _make_entity()
+    with patch("chatterbox.conversation.server.ChatterboxZeroconf") as mock_zc_class:
+        mock_zc = MagicMock()
+        mock_zc_class.return_value = mock_zc
+
+        app = create_conversation_app(entity, port=8765, enable_zeroconf=True)
+
+        # Simulate app startup and shutdown
+        async with app.router.lifespan_context(app):
+            pass  # Exit the context (triggers shutdown)
+
+        # Zeroconf.stop should have been called
+        mock_zc.stop.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_create_conversation_app_lifespan_startup_error_handling() -> None:
+    """Test that lifespan continues even if zeroconf.start() fails."""
+    from unittest.mock import MagicMock, patch
+    from chatterbox.conversation.server import create_conversation_app
+
+    entity = _make_entity()
+    with patch("chatterbox.conversation.server.ChatterboxZeroconf") as mock_zc_class:
+        mock_zc = MagicMock()
+        mock_zc.start.side_effect = Exception("Zeroconf start failed")
+        mock_zc_class.return_value = mock_zc
+
+        app = create_conversation_app(entity, port=8765, enable_zeroconf=True)
+
+        # Should not raise, even though zeroconf.start() failed
+        async with app.router.lifespan_context(app):
+            pass  # Should complete without error
+
+
+@pytest.mark.anyio
+async def test_health_endpoint_with_zeroconf() -> None:
+    """Test that health endpoint still works with zeroconf enabled."""
+    from unittest.mock import patch
+    from chatterbox.conversation.server import create_conversation_app
+
+    entity = _make_entity()
+    with patch("chatterbox.conversation.server.ChatterboxZeroconf"):
+        app = create_conversation_app(entity, port=8765, enable_zeroconf=True)
+        async with await _client(entity) as client:
+            # Temporarily replace the client with one using the new app
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client_with_zc:
+                resp = await client_with_zc.get("/health")
+        assert resp.status_code == 200
