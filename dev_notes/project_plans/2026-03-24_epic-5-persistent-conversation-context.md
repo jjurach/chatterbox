@@ -650,12 +650,18 @@ class ConversationManager:
 **Estimated Hours:** 8
 **Depends On:** All other tasks
 **Acceptance Criteria:**
-- [ ] Unit tests for all components (>90% coverage)
-- [ ] Integration tests for full workflows
+- [ ] Unit tests for all components with mocked providers (>90% coverage)
+- [ ] Unit tests for weather tool with mocked Open-Meteo API
+- [ ] Unit tests for LLM interactions with mocked mellona provider
+- [ ] Integration tests for full workflows with real tools
+- [ ] Integration tests for live weather tool responses (multiple locations)
+- [ ] Integration tests for multi-turn weather conversations
 - [ ] Data integrity tests (no loss, no corruption)
 - [ ] Performance tests (latency requirements met)
 - [ ] Multi-user isolation verified
 - [ ] Retention policy verified
+- [ ] Tool call logging verified
+- [ ] Weather results persisted in conversation history
 
 **Implementation Details:**
 
@@ -666,35 +672,106 @@ class ConversationManager:
    - Repository CRUD operations
    - Search query building
    - Token estimation
+   - **Tool interaction with mocked providers:**
+     - Weather tool with mocked Open-Meteo API responses
+     - LLM model calls with mocked mellona provider
+     - Tool call parameter validation
+     - Error handling for tool failures
 
 2. **Integration Tests:**
    - Full conversation flow (store/retrieve/search)
    - Multi-turn conversation coherence
    - User isolation
    - Cleanup policy execution
+   - **Live weather tool integration:**
+     - Real weather query: "What's the weather in Kansas City?"
+     - Verify tool response stored in message history with:
+       - Original user message
+       - Tool call (get_weather, location)
+       - Tool result (temperature, conditions, humidity, wind)
+       - Assistant response referencing weather data
+     - Multiple location queries (city, city+state, city+country)
+     - Invalid location error handling
+     - Tool result persistence across restarts
 
-3. **Performance Tests:**
+3. **Tool-Agent Integration Tests:**
+   - Agent processes weather query with real LLM response
+   - LLM includes weather context in follow-up messages
+   - Tool calls appear in conversation history with timestamps
+   - Multi-turn conversation with weather references:
+     - User: "What's the weather in London?"
+     - Agent calls weather tool, gets result
+     - User: "What about Paris?"
+     - Agent references both results in conversation
+
+4. **Performance Tests:**
    - Retrieval latency <200ms
    - Search latency <500ms
    - Write throughput (100+ msgs/sec)
    - Memory footprint under load
+   - Weather API latency (typical <5s round-trip)
 
-4. **Data Integrity Tests:**
+5. **Data Integrity Tests:**
    - No data loss on restart
    - Transactions working correctly
    - Concurrent access handled properly
    - Orphaned records cleanup
+   - Tool result data consistency across database backends
 
 **Test Fixtures:**
 - Sample conversations (5-50 messages each)
 - Multiple user scenarios
 - Large dataset for performance testing (10K+ messages)
+- **Weather tool test data:**
+  - Mock Open-Meteo responses for various locations
+  - Mock mellona LLM provider responses
+  - Real weather queries for integration tests
+
+**Mocking Strategy:**
+```python
+# Unit tests: Mock the weather tool provider
+@pytest.fixture
+def mock_weather_tool():
+    """Mock mellona's weather tool for unit testing"""
+    with patch('mellona.tools.weather.WeatherTool.get_weather') as mock:
+        mock.return_value = {
+            "location_name": "Kansas City, Missouri, United States",
+            "temperature_c": 22.0,
+            "temperature_f": 72.0,
+            "conditions": "Partly cloudy",
+            "humidity_percent": 65,
+            "wind_speed_kmh": 12.5,
+            "wind_speed_mph": 7.8
+        }
+        yield mock
+
+# Unit tests: Mock the LLM provider
+@pytest.fixture
+def mock_llm_provider():
+    """Mock mellona's LLM provider for unit testing"""
+    with patch('mellona.MellonaClient.call') as mock:
+        mock.return_value = LLMResponse(
+            text="It's currently 72°F and partly cloudy in Kansas City with 65% humidity.",
+            tokens_used=15,
+            model="llama-pro:latest"
+        )
+        yield mock
+
+# Integration tests: Use real providers (requires mellona setup)
+@pytest.fixture(scope="session")
+def mellona_client():
+    """Real mellona client for integration tests"""
+    from mellona import MellonaClient
+    return MellonaClient()
+```
 
 **Testing Plan:**
-- Execute test suite with >95% pass rate
+- Execute unit test suite with >95% pass rate (mocked providers)
+- Execute integration test suite with >90% pass rate (real/live tools)
 - Load test with production-like data volumes
-- Chaos testing (kill process, network failure)
-- Multi-user concurrent testing
+- Chaos testing (kill process, network failure, tool timeout)
+- Multi-user concurrent testing with weather queries
+- Weather tool timeout handling (>5s response)
 
 ---
 
