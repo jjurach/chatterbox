@@ -78,8 +78,9 @@ class VoiceAssistantAgent:
         profile = mellona_config.get_profile(mellona_profile)
 
         # Extract LLM configuration from profile
-        base_url = profile.metadata.get('base_url', ollama_base_url)
-        model = profile.model or ollama_model
+        # Prefer explicit constructor parameters over mellona config
+        base_url = ollama_base_url if ollama_base_url != "http://localhost:11434/v1" else profile.metadata.get('base_url', ollama_base_url)
+        model = ollama_model if ollama_model != "llama3.1:8b" else (profile.model or ollama_model)
 
         # Convert temperature to float if it's a string
         temperature = profile.temperature
