@@ -48,6 +48,8 @@ dependencies = [
     "pyyaml>=6.0",
     "easyocr>=1.6.0",
     "opencv-python>=4.8.0",
+    "faster-whisper>=1.0.0",
+    "piper-tts>=1.2.0",
 ]
 
 [project.optional-dependencies]
