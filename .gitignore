@@ -160,6 +160,15 @@ session_*.md
 # bv (beads viewer) local config and caches
 .bv/
 
+# Beads runtime and state files
+.beads/dolt-monitor.pid
+.beads/daemon.pid
+.beads/*.port
+.beads/*.activity
+.beads/*.sock
+.beads/*.lock
+.beads/*-error.log
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db
