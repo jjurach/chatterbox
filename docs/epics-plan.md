@@ -24,7 +24,7 @@ The Cackle Chatterbox project is a 12-epic initiative to build a complete, produ
 - **Foundation Phase** (Epic 1): OTA & device state machine
 - **Hardware Integration Phase** (Epics 2-3): Wake word, Wyoming protocol, testing infrastructure
 - **Intelligence Phase** (Epics 4-5): LLM integration, context persistence with Mellona STT/TTS pre-integrated
-- **Enhancement & Production Phase** (Epics 6-12): Performance, reliability, advanced features, production deployment
+- **Enhancement & Production Phase** (Epics 6-12): Backend deployment, audio, touchscreen, reliability, documentation
 
 **Key Strategic Decisions:**
 - **Mellona Integration:** High-priority pre-requisite for Epic 5 (already implemented STT/TTS)
@@ -41,17 +41,17 @@ The Cackle Chatterbox project is a 12-epic initiative to build a complete, produ
 | # | Name | Status | Focus Area | Duration | Depends On |
 |---|------|--------|-----------|----------|-----------|
 | 1 | OTA & Foundation | **Ready for Testing** | Device state machine, OTA updates, OCR validation | 2 weeks | — |
-| 2 | Wake Word Detection | Planned | Hardware wake word, audio preprocessing, device integration | 2 weeks | Epic 1 |
+| 2 | Observability & Serial Logging | Planned | Serial logging infrastructure, log capture service, operator utilities | 2 weeks | Epic 1 |
 | 3 | Wyoming Protocol & Testing | **Complete** | Wyoming protocol implementation, STT/TTS validation, test infrastructure | 3 weeks | Epic 2 |
 | 4 | LLM Integration | **Complete** | Agentic loop, tool calling, conversation handling | 3 weeks | Epic 3 |
 | 5 | Context Persistence | Planned | Conversation history storage, multi-user isolation, context search | 2 weeks | Epic 4 |
-| 6 | Performance & Optimization | Planned | Latency optimization, model quantization, streaming | 2 weeks | Epic 5 |
-| 7 | Reliability & Error Handling | Planned | Fallback strategies, recovery mechanisms, logging | 2 weeks | Epic 6 |
-| 8 | Advanced Tools & Integrations | Planned | Multi-tool framework, third-party integrations, API management | 3 weeks | Epic 7 |
-| 9 | Multi-Device Coordination | Planned | Room detection, device clustering, distributed state | 3 weeks | Epic 8 |
-| 10 | Privacy & Security | Planned | Encryption, access control, data sanitization | 2 weeks | Epic 9 |
-| 11 | Production Deployment & Monitoring | Planned | CI/CD pipeline, metrics, health checks, release process | 2 weeks | Epic 10 |
-| 12 | Long-Term Maintenance | Planned | Sustainability, documentation, community support | Ongoing | Epic 11 |
+| 6 | Backend Deployment & HA Connection | Planned | Docker deployment, docker-compose orchestration, HA Wyoming connection | 2 weeks | Epic 5 |
+| 7 | Recording & PCM Streaming | Planned | Voice recording on device, PCM transmission, Whisper STT integration | 2 weeks | Epic 6 |
+| 8 | Receiving & Audio Playback | Planned | Return audio path, speaker playback, transition sounds | 1.5 weeks | Epic 7 |
+| 9 | Touchscreen Integration & Device Coordination | Planned | Touchscreen UI, multi-device discovery, room-aware responses | 3 weeks | Epic 8 |
+| 10 | Continuous Conversation & Wake Word | Planned | Always-listening local wake word, automatic state transitions | 2 weeks | Epic 9 |
+| 11 | Reliability & LLM Fallback | Planned | Multi-LLM providers, automatic fallback, cost tracking, local fallback | 2 weeks | Epic 10 |
+| 12 | Documentation & Maintenance | Planned | Sustainability, documentation, community support | Ongoing | Epic 11 |
 
 ---
 
@@ -329,35 +329,38 @@ The Cackle Chatterbox project is a 12-epic initiative to build a complete, produ
 
 ---
 
-### Epic 8: Advanced Tools & Integrations
+### Epic 8: Receiving & Audio Playback
 
 **Status:** Planned
-**Estimated Duration:** 3 weeks
+**Estimated Duration:** 1.5 weeks
 **Depends On:** Epic 7
+**Reference:** `dev_notes/project_plans/2026-03-24_epic-8-receiving-audio-playback.md`
 
-**Purpose:** Expand tool ecosystem with advanced integrations and enable third-party tool development.
+**Purpose:** Implement the return audio path, enabling the backend to send audio responses back to the ESP32-S3-BOX-3B for playback through the speaker. Completes the bidirectional audio flow and adds transition sounds (start/end/error tones).
 
 **Key Deliverables:**
-- Advanced tool framework with dependency management
-- Home automation tool (light, thermostat, etc. control)
-- Calendar/reminder tool integration
-- News/information aggregation tools
-- Third-party API integration framework
-- Tool marketplace/registry concept
+- I2S audio output driver for ESP32-S3-BOX-3B speaker
+- PCM audio reception from backend via Wyoming protocol
+- Playback buffer management
+- Transition sounds (beep/click on state changes)
+- Volume control (configurable via ESPHome YAML)
+- Concurrent recording/playback handling
 
 **Acceptance Criteria:**
-- [ ] At least 5+ tools functional
-- [ ] Tool dependency resolution working
-- [ ] Home automation integration complete
-- [ ] Third-party tool framework documented
-- [ ] Error handling for failed tools
+- [ ] Audio received from backend without data loss
+- [ ] Playback latency <1 second from reception
+- [ ] Speaker output at appropriate volume levels
+- [ ] Transition sounds working correctly (blue→red, green→blue)
+- [ ] No interference between recording and playback
+- [ ] Volume control functional and persistent
+- [ ] Error audio played on failures
 
 **Testing Criteria:**
-- [ ] Individual tool accuracy validation
-- [ ] Dependency resolution correctness
-- [ ] Home automation command execution
-- [ ] Third-party tool integration examples
-- [ ] Tool failure recovery
+- [ ] Full bidirectional audio chain end-to-end
+- [ ] Transition sound quality and timing
+- [ ] Volume control accuracy
+- [ ] Concurrent recording and playback stability
+- [ ] Network failure recovery during playback
 
 ---
 
@@ -439,35 +442,38 @@ The Cackle Chatterbox project is a 12-epic initiative to build a complete, produ
 
 ---
 
-### Epic 11: Production Deployment & Monitoring
+### Epic 11: Reliability & LLM Fallback
 
 **Status:** Planned
 **Estimated Duration:** 2 weeks
 **Depends On:** Epic 10
+**Reference:** `dev_notes/project_plans/2026-03-24_epic-11-reliability-llm-fallback.md`
 
-**Purpose:** Establish production-ready deployment pipeline and monitoring infrastructure.
+**Purpose:** Implement production-grade reliability with multi-LLM provider support and automatic fallback. System gracefully handles provider outages, rate limits, and cost overruns. Falls back through a chain of providers (primary → secondary → local Ollama fallback).
 
 **Key Deliverables:**
-- CI/CD pipeline for firmware and backend
-- Health monitoring and alerting system
-- Performance metrics and dashboards
-- Release process and versioning
-- Rollback procedures
-- Production runbooks and documentation
+- Multi-LLM provider abstraction layer (OpenAI, Anthropic, Ollama, etc.)
+- Automatic provider failover on failure/rate-limit
+- Cost tracking and budget enforcement
+- Local Ollama fallback for offline/degraded operation
+- Health checks and provider monitoring
+- Graceful degradation with user-visible status
 
 **Acceptance Criteria:**
-- [ ] Automated testing on every commit
-- [ ] Metrics dashboard operational
-- [ ] Rollback procedures documented and tested
-- [ ] Health checks functioning
-- [ ] Release process automated
+- [ ] At least 2 LLM providers integrated and working
+- [ ] Failover latency <2 seconds
+- [ ] Fallback trigger accuracy >95%
+- [ ] Cost tracking accurate to within 1%
+- [ ] Local fallback provides reasonable responses
+- [ ] Service uptime >99.5% despite provider issues
+- [ ] Automatic recovery from transient failures
 
 **Testing Criteria:**
-- [ ] CI/CD pipeline integration tests
-- [ ] Metrics collection and dashboard
-- [ ] Rollback procedure validation
-- [ ] Health check accuracy
-- [ ] Release process end-to-end
+- [ ] Provider failover simulation
+- [ ] Cost tracking accuracy under load
+- [ ] Local fallback quality validation
+- [ ] Recovery from network partition
+- [ ] Budget enforcement testing
 
 ---
 
@@ -508,27 +514,27 @@ The Cackle Chatterbox project is a 12-epic initiative to build a complete, produ
 ```
 Epic 1 (OTA & Foundation)
     ↓
-Epic 2 (Wake Word Detection)
+Epic 2 (Observability & Serial Logging)
     ↓
-Epic 3 (Wyoming Protocol & Testing)
+Epic 3 (Wyoming Protocol & Testing) ✅
     ↓
-Epic 4 (LLM Integration)
+Epic 4 (LLM Integration) ✅
     ↓
 Epic 5 (Context Persistence)
     ↓
-Epic 6 (Performance Optimization)
+Epic 6 (Backend Deployment & HA Connection)
     ↓
-Epic 7 (Reliability & Error Handling)
+Epic 7 (Recording & PCM Streaming)
     ↓
-Epic 8 (Advanced Tools)
+Epic 8 (Receiving & Audio Playback)
     ↓
-Epic 9 (Multi-Device Coordination)
+Epic 9 (Touchscreen Integration & Device Coordination)
     ↓
-Epic 10 (Privacy & Security)
+Epic 10 (Continuous Conversation & Wake Word)
     ↓
-Epic 11 (Production Deployment)
+Epic 11 (Reliability & LLM Fallback)
     ↓
-Epic 12 (Long-Term Maintenance)
+Epic 12 (Documentation & Maintenance)
 ```
 
 **Critical Path:** Epics 1-4 must complete sequentially before proceeding with 5-12.
@@ -539,7 +545,7 @@ Epic 12 (Long-Term Maintenance)
 
 ### Phase 1: Foundation (Weeks 1-4)
 - **Epic 1:** OTA & Foundation (Weeks 1-2) [READY FOR TESTING]
-- **Epic 2:** Wake Word Detection (Weeks 3-4) [PLANNED]
+- **Epic 2:** Observability & Serial Logging (Weeks 3-4) [PLANNED]
 
 ### Phase 2: Infrastructure (Weeks 5-10)
 - **Epic 3:** Wyoming Protocol & Testing (Weeks 5-7) [COMPLETE]
@@ -547,19 +553,19 @@ Epic 12 (Long-Term Maintenance)
 
 ### Phase 3: Enhancement (Weeks 11-16)
 - **Epic 5:** Context Persistence (Weeks 11-12) [PLANNED]
-- **Epic 6:** Performance Optimization (Weeks 13-14) [PLANNED]
-- **Epic 7:** Reliability & Error Handling (Weeks 15-16) [PLANNED]
+- **Epic 6:** Backend Deployment & HA Connection (Weeks 13-14) [PLANNED]
+- **Epic 7:** Recording & PCM Streaming (Weeks 15-16) [PLANNED]
 
-### Phase 4: Expansion (Weeks 17-22)
-- **Epic 8:** Advanced Tools (Weeks 17-19) [PLANNED]
-- **Epic 9:** Multi-Device Coordination (Weeks 20-22) [PLANNED]
+### Phase 4: Expansion (Weeks 17-21)
+- **Epic 8:** Receiving & Audio Playback (Weeks 17-18) [PLANNED]
+- **Epic 9:** Touchscreen Integration & Device Coordination (Weeks 19-21) [PLANNED]
 
-### Phase 5: Production (Weeks 23-26)
-- **Epic 10:** Privacy & Security (Weeks 23-24) [PLANNED]
-- **Epic 11:** Production Deployment (Weeks 25-26) [PLANNED]
+### Phase 5: Production (Weeks 22-26)
+- **Epic 10:** Continuous Conversation & Wake Word (Weeks 22-23) [PLANNED]
+- **Epic 11:** Reliability & LLM Fallback (Weeks 24-25) [PLANNED]
 
 ### Phase 6: Maintenance (Ongoing)
-- **Epic 12:** Long-Term Maintenance (Ongoing) [PLANNED]
+- **Epic 12:** Documentation & Maintenance (Ongoing) [PLANNED]
 
 **Total Estimated Timeline:** ~6.5 months to production readiness (including buffer)
 
@@ -619,9 +625,25 @@ Epic 12 (Long-Term Maintenance)
 
 ## References
 
-- **Epic 3-4 Plan:** `dev_notes/project_plans/2026-02-18_epic-3-4-wyoming-llm-project-plan.md`
+### Completed Epic Plans
 - **Epic 1 Plan:** `dev_notes/project_plans/2026-02-13_10-00-00_epic-1-ota-and-foundation-project-plan.md`
-- **Context Persistence Proposal:** `docs/epic5-context-persistence-proposal.md`
+- **Epic 3-4 Plan:** `dev_notes/project_plans/2026-02-18_epic-3-4-wyoming-llm-project-plan.md`
+
+### Planned Epic Plans
+- **Epic 2 Plan:** `dev_notes/project_plans/2026-03-24_epic-2-observability-monitoring.md`
+- **Epic 5 Plan:** `dev_notes/project_plans/2026-03-24_epic-5-persistent-conversation-context.md`
+- **Epic 6 Plan:** `dev_notes/project_plans/2026-03-24_epic-6-backend-deployment-ha-connection.md`
+- **Epic 7 Plan:** `dev_notes/project_plans/2026-03-24_epic-7-recording-pcm-streaming.md`
+- **Epic 8 Plan:** `dev_notes/project_plans/2026-03-24_epic-8-receiving-audio-playback.md`
+- **Epic 9 Plan:** `dev_notes/project_plans/2026-03-24_epic-9-touchscreen-integration.md`
+- **Epic 10 Plan:** `dev_notes/project_plans/2026-03-24_epic-10-continuous-conversation-wake-word.md`
+- **Epic 11 Plan:** `dev_notes/project_plans/2026-03-24_epic-11-reliability-llm-fallback.md`
+- **Epic 12 Plan:** `dev_notes/project_plans/2026-03-24_epic-12-documentation-maintenance.md`
+
+### Supporting Documents
+- **Clarifications & Decisions:** `dev_notes/project_plans/2026-03-24_clarifications-summary.md`
+- **Mellona Migration (Epic 5 Prerequisite):** `dev_notes/project_plans/2026-02-25_mellona-migration-project-plan.md`
+- **Context Persistence Proposal (Epic 5 Background):** `docs/epic5-context-persistence-proposal.md`
 - **Chatterbox Architecture:** `docs/architecture.md`
 - **Project README:** `README.md`
 

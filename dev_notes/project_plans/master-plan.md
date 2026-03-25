@@ -15,10 +15,20 @@ This master plan guides implementation of the Cackle Chatterbox voice assistant,
 
 ## Quick Navigation
 
-- **For detailed epic analysis:** [docs/epics-plan.md](../../docs/epics-plan.md)
-- **For Epic 1 details:** [2026-02-13_10-00-00_epic-1-ota-and-foundation-project-plan.md](2026-02-13_10-00-00_epic-1-ota-and-foundation-project-plan.md)
-- **For Epics 3-4 details:** [2026-02-18_epic-3-4-wyoming-llm-project-plan.md](2026-02-18_epic-3-4-wyoming-llm-project-plan.md)
-- **For project architecture:** [docs/architecture.md](../../docs/architecture.md)
+- **Source of truth (all epics):** [docs/epics-plan.md](../../docs/epics-plan.md)
+- **Clarifications & decisions:** [2026-03-24_clarifications-summary.md](2026-03-24_clarifications-summary.md)
+- **Epic 1 details:** [2026-02-13_10-00-00_epic-1-ota-and-foundation-project-plan.md](2026-02-13_10-00-00_epic-1-ota-and-foundation-project-plan.md)
+- **Epic 2 details:** [2026-03-24_epic-2-observability-monitoring.md](2026-03-24_epic-2-observability-monitoring.md)
+- **Epics 3-4 details:** [2026-02-18_epic-3-4-wyoming-llm-project-plan.md](2026-02-18_epic-3-4-wyoming-llm-project-plan.md)
+- **Epic 5 details:** [2026-03-24_epic-5-persistent-conversation-context.md](2026-03-24_epic-5-persistent-conversation-context.md)
+- **Epic 6 details:** [2026-03-24_epic-6-backend-deployment-ha-connection.md](2026-03-24_epic-6-backend-deployment-ha-connection.md)
+- **Epic 7 details:** [2026-03-24_epic-7-recording-pcm-streaming.md](2026-03-24_epic-7-recording-pcm-streaming.md)
+- **Epic 8 details:** [2026-03-24_epic-8-receiving-audio-playback.md](2026-03-24_epic-8-receiving-audio-playback.md)
+- **Epic 9 details:** [2026-03-24_epic-9-touchscreen-integration.md](2026-03-24_epic-9-touchscreen-integration.md)
+- **Epic 10 details:** [2026-03-24_epic-10-continuous-conversation-wake-word.md](2026-03-24_epic-10-continuous-conversation-wake-word.md)
+- **Epic 11 details:** [2026-03-24_epic-11-reliability-llm-fallback.md](2026-03-24_epic-11-reliability-llm-fallback.md)
+- **Epic 12 details:** [2026-03-24_epic-12-documentation-maintenance.md](2026-03-24_epic-12-documentation-maintenance.md)
+- **Project architecture:** [docs/architecture.md](../../docs/architecture.md)
 
 ---
 
@@ -41,22 +51,22 @@ Establish foundational infrastructure for device state machine, OTA updates, and
 
 ---
 
-### Epic 2: Wake Word Detection
+### Epic 2: Observability & Serial Logging
 **Status:** Planned | **Target Completion:** 2026-04-14
 
-Enable hardware-based wake word detection to reduce server load and enable push-to-talk workflows.
+Establish serial logging infrastructure for device observability, troubleshooting, and monitoring. Phase 1 focuses on reliable serial logging; Home Assistant dashboard integration deferred to Phase 2.
 
 **Key Deliverables:**
-- Wake word model integration (microWakeWord/TinyML)
-- Audio preprocessing pipeline (noise reduction, gain normalization)
-- Device state transitions on wake detection
-- Wake word accuracy >95% in home environment
-- Configuration system for enabling/disabling wake word
+- Structured serial logging schema (JSON format, configurable levels)
+- Serial logging integration on ESP32 firmware (all state transitions, audio, network events)
+- Serial log capture service (Python background service with log rotation)
+- `chatterbox-logs` CLI utility (capture, view, search, export sub-commands)
+- Performance overhead <5% CPU impact
 
-**Team Effort:** ~40 hours
+**Team Effort:** ~80 hours
 **Depends On:** Epic 1
 **Next:** Epic 3 (Wyoming Protocol & Testing)
-**Plan File:** To be created during Epic 1 completion
+**Plan File:** [2026-03-24_epic-2-observability-monitoring.md](2026-03-24_epic-2-observability-monitoring.md)
 
 ---
 
@@ -107,170 +117,145 @@ Implement stateful, agentic conversation loop with LLM inference and tool callin
 Implement persistent conversation history so context survives process restarts and enables cross-session awareness.
 
 **Key Deliverables:**
-- Persistent storage backend (SQLite/Redis/PostgreSQL selection)
-- Conversation history retrieval and tracking
-- TTL-based retention policy with automatic purging
-- Context search tool for LLM queries
+- SQLite backend (Phase 1); PostgreSQL migration path via storage abstraction layer
+- Conversation history retrieval and tracking with multi-turn context
+- TTL-based retention policy with automatic purging (default 30 days)
+- Context search tool for LLM queries (<200ms latency)
 - Multi-user conversation isolation
-- Storage abstraction interface for backend swapping
+- Storage abstraction interface enabling backend swapping
 
-**Estimated Effort:** ~60 hours
-**Depends On:** Epic 4
-**Next:** Epic 6 (Performance Optimization)
-
-**Proposed Tasks:**
-- Task 5.1: Backend evaluation and selection
-- Task 5.2: Storage schema design
-- Task 5.3: Retention policy implementation
-- Task 5.4: Context integration with LLM
-- Task 5.5: Context search tool
-- Task 5.6: Multi-user isolation
-- Task 5.7: Testing and documentation
+**Estimated Effort:** ~41 hours
+**Depends On:** Epic 4; **Prerequisite:** Mellona integration (see [2026-02-25_mellona-migration-project-plan.md](2026-02-25_mellona-migration-project-plan.md))
+**Next:** Epic 6 (Backend Deployment & HA Connection)
+**Plan File:** [2026-03-24_epic-5-persistent-conversation-context.md](2026-03-24_epic-5-persistent-conversation-context.md)
 
 ---
 
-### Epic 6: Performance Optimization & Streaming
+### Epic 6: Backend Deployment & Home Assistant Connection
 **Status:** Planned | **Target Completion:** 2026-05-26
 
-Optimize end-to-end latency and implement streaming audio/response processing.
+Establish production-ready backend deployment with Docker and robust Home Assistant Wyoming integration.
 
 **Key Deliverables:**
-- Real-time STT streaming (chunk-based vs. buffer-based)
-- LLM response streaming (partial response generation)
-- TTS streaming (concurrent synthesis and transmission)
-- Model quantization for faster inference
-- Response caching for common queries (20%+ hit rate)
-- Latency measurement and monitoring framework
-
-**Success Metrics:**
-- End-to-end latency <3 seconds for simple queries
-- Memory footprint reduced by 30%+
-- Model accuracy maintained >90% after quantization
+- Dockerfile with multi-stage builds for backend service
+- docker-compose.yml for complete system orchestration (`docker-compose up` brings everything online)
+- Stable Wyoming protocol connection to Home Assistant (auto-recovery)
+- Multi-device deployment support with load balancing
+- Rollback procedures without data loss
 
 **Estimated Effort:** ~50 hours
 **Depends On:** Epic 5
-**Next:** Epic 7 (Reliability & Error Handling)
+**Next:** Epic 7 (Recording & PCM Streaming)
+**Plan File:** [2026-03-24_epic-6-backend-deployment-ha-connection.md](2026-03-24_epic-6-backend-deployment-ha-connection.md)
 
 ---
 
-### Epic 7: Reliability & Error Handling
+### Epic 7: Recording & PCM Streaming
 **Status:** Planned | **Target Completion:** 2026-06-09
 
-Implement fallback strategies and robust error recovery mechanisms.
+Implement voice recording on the ESP32-S3-BOX-3B and PCM packet transmission through the Wyoming protocol to Whisper STT.
 
 **Key Deliverables:**
-- Automatic retry logic for failed service calls
-- Graceful degradation when services unavailable
-- Local fallback LLM models
-- Offline mode with reduced capabilities
-- Comprehensive error logging and alerting
-- Health check and recovery mechanisms (30s detect time)
+- Audio recording from box3b microphone (16kHz, 16-bit mono)
+- Efficient PCM buffer management with circular buffers
+- Audio stream transmission via Wyoming protocol
+- Whisper STT integration (real-time speech-to-text)
+- Push-to-talk and wake-word recording workflows
+- `chatterbox-logs` serial log utility (separate CLI tool)
 
-**Target Availability:** >99% uptime
 **Estimated Effort:** ~50 hours
 **Depends On:** Epic 6
-**Next:** Epic 8 (Advanced Tools & Integrations)
+**Next:** Epic 8 (Receiving & Audio Playback)
+**Plan File:** [2026-03-24_epic-7-recording-pcm-streaming.md](2026-03-24_epic-7-recording-pcm-streaming.md)
 
 ---
 
-### Epic 8: Advanced Tools & Integrations
+### Epic 8: Receiving & Audio Playback
 **Status:** Planned | **Target Completion:** 2026-06-30
 
-Expand tool ecosystem with advanced integrations and enable third-party tool development.
+Implement the return audio path — backend sends TTS audio back to device for speaker playback. Completes bidirectional audio flow.
 
 **Key Deliverables:**
-- Advanced tool framework with dependency management
-- Home automation tool (light, thermostat, lock control)
-- Calendar/reminder tool integration
-- News/information aggregation tools
-- Third-party API integration framework
-- Tool marketplace/registry concept
+- I2S audio output driver for ESP32-S3-BOX-3B speaker
+- PCM audio reception from backend via Wyoming protocol
+- Playback buffer management (<1s latency)
+- Transition sounds (beep/click on state changes, configurable in ESPHome YAML)
+- Volume control (persistent, configurable)
+- Concurrent recording/playback handling
 
-**Minimum Tools:** 5+ operational (weather, time, home automation, calendar, news)
-**Estimated Effort:** ~80 hours
+**Estimated Effort:** ~60 hours
 **Depends On:** Epic 7
-**Next:** Epic 9 (Multi-Device Coordination)
+**Next:** Epic 9 (Touchscreen Integration & Device Coordination)
+**Plan File:** [2026-03-24_epic-8-receiving-audio-playback.md](2026-03-24_epic-8-receiving-audio-playback.md)
 
 ---
 
-### Epic 9: Multi-Device Coordination
+### Epic 9: Touchscreen Integration & Device Coordination
 **Status:** Planned | **Target Completion:** 2026-07-21
 
-Enable multiple Chatterbox devices to coordinate, share context, and provide room-aware functionality.
+Integrate touchscreen interface for device interaction and enable multi-device coordination with room-aware responses.
 
 **Key Deliverables:**
-- Device discovery and registration protocol
+- Touchscreen UI for device interaction (screen-specific buttons per state)
+- Device discovery and registration
 - Room detection and location-aware responses
 - Shared conversation context across devices
-- Device-to-device communication protocol
-- Multi-device conversation coordination
-- Distributed state synchronization
-
-**Key Features:**
-- Automatic device discovery
-- Room-aware responses ("lights in the bedroom" vs. "lights everywhere")
-- Context sharing between devices
-- Failover handling for device loss
+- Architectural decision: Arduino vs. ESPHome (evaluate both, document rationale)
 
 **Estimated Effort:** ~90 hours
 **Depends On:** Epic 8
-**Next:** Epic 10 (Privacy & Security)
+**Next:** Epic 10 (Continuous Conversation & Wake Word)
+**Plan File:** [2026-03-24_epic-9-touchscreen-integration.md](2026-03-24_epic-9-touchscreen-integration.md)
 
 ---
 
-### Epic 10: Privacy & Security
+### Epic 10: Continuous Conversation & Wake Word
 **Status:** Planned | **Target Completion:** 2026-08-04
 
-Implement comprehensive security and privacy controls.
+Implement always-listening wake word detection (LOCAL on device, no HA streaming) and 5-second continuation window for follow-up speech.
 
 **Key Deliverables:**
-- End-to-end encryption for audio transmission
-- Authentication and authorization framework
-- Data sanitization and privacy controls
-- GDPR compliance mechanisms
-- Secure secrets management
-- Security audit trail
+- Always-listening wake word using box3b's LOCAL voice model (no streaming to HA)
+- Configurable wake words
+- Automatic state transitions on wake detection (<500ms latency)
+- 5-second red-light continuation window (speech detected → continues interaction)
+- Power consumption <500mW in listen mode
 
-**Compliance:** GDPR-ready, encryption in transit and at rest
 **Estimated Effort:** ~50 hours
 **Depends On:** Epic 9
-**Next:** Epic 11 (Production Deployment & Monitoring)
+**Next:** Epic 11 (Reliability & LLM Fallback)
+**Plan File:** [2026-03-24_epic-10-continuous-conversation-wake-word.md](2026-03-24_epic-10-continuous-conversation-wake-word.md)
 
 ---
 
-### Epic 11: Production Deployment & Monitoring
+### Epic 11: Reliability & LLM Fallback
 **Status:** Planned | **Target Completion:** 2026-08-18
 
-Establish production-ready deployment pipeline and monitoring infrastructure.
+Implement multi-LLM provider support with automatic failover. System cycles through provider chain (primary → secondary → local Ollama) on failure, with cost tracking and budget enforcement.
 
 **Key Deliverables:**
-- CI/CD pipeline for firmware and backend (automated testing)
-- Health monitoring and alerting system
-- Performance metrics and dashboards
-- Release process and versioning strategy
-- Rollback procedures (tested and documented)
-- Production runbooks and documentation
+- Multi-LLM provider abstraction (OpenAI, Anthropic, Ollama, etc.)
+- Automatic failover with <2s transition latency
+- Cost tracking accurate to within 1%
+- Local Ollama fallback for offline/degraded operation
+- Health checks and provider monitoring
+- Context length tracking per LLM profile
 
-**Key Capabilities:**
-- Automated testing on every commit
-- Metrics dashboard with key KPIs
-- 1-click rollback procedure
-- Health checks detecting issues within SLA
-- Documented runbooks for common scenarios
-
-**Estimated Effort:** ~50 hours
+**Target Availability:** >99.5% service uptime
+**Estimated Effort:** ~80 hours
 **Depends On:** Epic 10
-**Next:** Epic 12 (Long-Term Maintenance & Community)
+**Next:** Epic 12 (Documentation & Maintenance)
+**Plan File:** [2026-03-24_epic-11-reliability-llm-fallback.md](2026-03-24_epic-11-reliability-llm-fallback.md)
 
 ---
 
-### Epic 12: Long-Term Maintenance & Community
+### Epic 12: Documentation & Maintenance
 **Status:** Planned | **Duration:** Ongoing after Epic 11
 
-Establish sustainable maintenance practices and community engagement.
+Archiving, compacting history, reducing documentation clutter, and setting up long-term project sustainability.
 
 **Key Deliverables:**
-- Comprehensive documentation suite
+- Comprehensive documentation review and cleanup
 - Community contribution guidelines
 - Issue triage and prioritization process
 - Dependency management and update strategy
@@ -279,13 +264,12 @@ Establish sustainable maintenance practices and community engagement.
 
 **Ongoing Activities:**
 - Regular dependency updates
-- Community support and engagement
-- Feature roadmap refinement
-- Documentation maintenance
+- Documentation maintenance and deduplication
 - Performance monitoring and optimization
 
 **Estimated Effort:** Ongoing
 **Depends On:** Epic 11
+**Plan File:** [2026-03-24_epic-12-documentation-maintenance.md](2026-03-24_epic-12-documentation-maintenance.md)
 
 ---
 
@@ -294,27 +278,27 @@ Establish sustainable maintenance practices and community engagement.
 ```
 Epic 1: OTA & Foundation
         ↓
-        └──→ Epic 2: Wake Word Detection
-                     ↓
-                     └──→ Epic 3: Wyoming Protocol & Testing ✅
-                                  ↓
-                                  └──→ Epic 4: LLM Integration ✅
-                                               ↓
-                                               └──→ Epic 5: Context Persistence ⏳
-                                                            ↓
-                                                            └──→ Epic 6: Performance ⏳
-                                                                         ↓
-                                                                         └──→ Epic 7: Reliability ⏳
-                                                                                      ↓
-                                                                                      └──→ Epic 8: Advanced Tools ⏳
-                                                                                                   ↓
-                                                                                                   └──→ Epic 9: Multi-Device ⏳
-                                                                                                                ↓
-                                                                                                                └──→ Epic 10: Security ⏳
-                                                                                                                              ↓
-                                                                                                                              └──→ Epic 11: Production ⏳
-                                                                                                                                              ↓
-                                                                                                                                              └──→ Epic 12: Maintenance ⏳
+Epic 2: Observability & Serial Logging
+        ↓
+Epic 3: Wyoming Protocol & Testing ✅
+        ↓
+Epic 4: LLM Integration ✅
+        ↓
+Epic 5: Context Persistence ⏳
+        ↓
+Epic 6: Backend Deployment & HA Connection ⏳
+        ↓
+Epic 7: Recording & PCM Streaming ⏳
+        ↓
+Epic 8: Receiving & Audio Playback ⏳
+        ↓
+Epic 9: Touchscreen Integration & Device Coordination ⏳
+        ↓
+Epic 10: Continuous Conversation & Wake Word ⏳
+        ↓
+Epic 11: Reliability & LLM Fallback ⏳
+        ↓
+Epic 12: Documentation & Maintenance ⏳
 ```
 
 **Critical Path:** Epics 1-4 must complete sequentially (foundation and protocol layers required before LLM integration).
@@ -325,9 +309,9 @@ Epic 1: OTA & Foundation
 
 ## Timeline Overview
 
-### Phase 1: Foundation & Hardware (Weeks 1-4)
+### Phase 1: Foundation & Observability (Weeks 1-4)
 - Week 1-2: Epic 1 - OTA & Foundation
-- Week 3-4: Epic 2 - Wake Word Detection
+- Week 3-4: Epic 2 - Observability & Serial Logging
 
 ### Phase 2: Protocol & Intelligence (Weeks 5-10)
 - Week 5-7: Epic 3 - Wyoming Protocol & Testing ✅
@@ -335,19 +319,19 @@ Epic 1: OTA & Foundation
 
 ### Phase 3: Enhancement (Weeks 11-16)
 - Week 11-12: Epic 5 - Context Persistence
-- Week 13-14: Epic 6 - Performance Optimization
-- Week 15-16: Epic 7 - Reliability & Error Handling
+- Week 13-14: Epic 6 - Backend Deployment & HA Connection
+- Week 15-16: Epic 7 - Recording & PCM Streaming
 
-### Phase 4: Expansion (Weeks 17-22)
-- Week 17-19: Epic 8 - Advanced Tools
-- Week 20-22: Epic 9 - Multi-Device Coordination
+### Phase 4: Audio & Device (Weeks 17-21)
+- Week 17-18: Epic 8 - Receiving & Audio Playback
+- Week 19-21: Epic 9 - Touchscreen Integration & Device Coordination
 
-### Phase 5: Production (Weeks 23-26)
-- Week 23-24: Epic 10 - Privacy & Security
-- Week 25-26: Epic 11 - Production Deployment & Monitoring
+### Phase 5: Continuous Conversation & Reliability (Weeks 22-25)
+- Week 22-23: Epic 10 - Continuous Conversation & Wake Word
+- Week 24-25: Epic 11 - Reliability & LLM Fallback
 
-### Phase 6: Ongoing (Beyond 26 weeks)
-- Epic 12 - Long-Term Maintenance & Community
+### Phase 6: Ongoing (Beyond 25 weeks)
+- Epic 12 - Documentation & Maintenance
 
 **Total Estimated Duration:** ~6.5 months to production readiness
 
@@ -360,35 +344,33 @@ Epic 1: OTA & Foundation
 - [ ] State machine MVP functional
 - [ ] OTA deployment tool operational
 - [ ] OCR validator >95% accurate
+- [ ] Serial logging capturing all state transitions
 
 ### Phase 2: Intelligence (Weeks 5-10)
-- [ ] Wyoming protocol fully validated
-- [ ] End-to-end conversation latency <5s
-- [ ] Tool framework extensible
-- [ ] Weather tool operational
+- [x] Wyoming protocol fully validated
+- [x] End-to-end conversation latency <5s
+- [x] Tool framework extensible
+- [x] Weather tool operational
 
 ### Phase 3: Enhancement (Weeks 11-16)
-- [ ] Persistent context working
-- [ ] Latency reduced to <3s
-- [ ] Automatic retry/failover working
-- [ ] System availability >99%
+- [ ] Persistent context working (SQLite backend)
+- [ ] Docker deployment operational
+- [ ] Device recording and PCM streaming working
 
-### Phase 4: Expansion (Weeks 17-22)
-- [ ] 5+ tools operational
+### Phase 4: Audio & Device (Weeks 17-21)
+- [ ] Bidirectional audio working (record + playback)
+- [ ] Touchscreen interface functional
 - [ ] Multi-device discovery working
-- [ ] Room-aware responses functional
-- [ ] Context sharing between devices
 
-### Phase 5: Production (Weeks 23-26)
-- [ ] Encryption enabled end-to-end
-- [ ] GDPR compliance verified
-- [ ] CI/CD pipeline operational
-- [ ] Metrics dashboard live
+### Phase 5: Continuous Conversation & Reliability (Weeks 22-25)
+- [ ] Wake word detection LOCAL on device
+- [ ] 5-second continuation window working
+- [ ] Multi-LLM fallback operational
+- [ ] System availability >99.5%
 
 ### Phase 6: Mature (Ongoing)
-- [ ] Active community engagement
+- [ ] Documentation reviewed and deduplicated
 - [ ] Regular dependency updates
-- [ ] Feature roadmap public and updated
 - [ ] Support documentation comprehensive
 
 ---
@@ -424,10 +406,22 @@ Epic 1: OTA & Foundation
 ## References & Resources
 
 ### Key Documentation
-- **Comprehensive Epic Analysis:** [docs/epics-plan.md](../../docs/epics-plan.md)
-- **Epic 1 Project Plan:** [2026-02-13_10-00-00_epic-1-ota-and-foundation-project-plan.md](2026-02-13_10-00-00_epic-1-ota-and-foundation-project-plan.md)
-- **Epic 3-4 Project Plan:** [2026-02-18_epic-3-4-wyoming-llm-project-plan.md](2026-02-18_epic-3-4-wyoming-llm-project-plan.md)
-- **Epic 5 Proposal:** [docs/epic5-context-persistence-proposal.md](../../docs/epic5-context-persistence-proposal.md)
+- **Source of truth (all epics):** [docs/epics-plan.md](../../docs/epics-plan.md)
+- **Clarifications & decisions:** [2026-03-24_clarifications-summary.md](2026-03-24_clarifications-summary.md)
+- **Epic 5 background proposal:** [docs/epic5-context-persistence-proposal.md](../../docs/epic5-context-persistence-proposal.md)
+
+### Epic Plan Files
+- **Epic 1:** [2026-02-13_10-00-00_epic-1-ota-and-foundation-project-plan.md](2026-02-13_10-00-00_epic-1-ota-and-foundation-project-plan.md)
+- **Epic 2:** [2026-03-24_epic-2-observability-monitoring.md](2026-03-24_epic-2-observability-monitoring.md)
+- **Epics 3-4:** [2026-02-18_epic-3-4-wyoming-llm-project-plan.md](2026-02-18_epic-3-4-wyoming-llm-project-plan.md)
+- **Epic 5:** [2026-03-24_epic-5-persistent-conversation-context.md](2026-03-24_epic-5-persistent-conversation-context.md)
+- **Epic 6:** [2026-03-24_epic-6-backend-deployment-ha-connection.md](2026-03-24_epic-6-backend-deployment-ha-connection.md)
+- **Epic 7:** [2026-03-24_epic-7-recording-pcm-streaming.md](2026-03-24_epic-7-recording-pcm-streaming.md)
+- **Epic 8:** [2026-03-24_epic-8-receiving-audio-playback.md](2026-03-24_epic-8-receiving-audio-playback.md)
+- **Epic 9:** [2026-03-24_epic-9-touchscreen-integration.md](2026-03-24_epic-9-touchscreen-integration.md)
+- **Epic 10:** [2026-03-24_epic-10-continuous-conversation-wake-word.md](2026-03-24_epic-10-continuous-conversation-wake-word.md)
+- **Epic 11:** [2026-03-24_epic-11-reliability-llm-fallback.md](2026-03-24_epic-11-reliability-llm-fallback.md)
+- **Epic 12:** [2026-03-24_epic-12-documentation-maintenance.md](2026-03-24_epic-12-documentation-maintenance.md)
 
 ### Architecture & Design
 - **System Architecture:** [docs/architecture.md](../../docs/architecture.md)
