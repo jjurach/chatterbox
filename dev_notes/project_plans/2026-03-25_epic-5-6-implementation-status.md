@@ -22,9 +22,9 @@ All tasks completed and merged:
 ---
 
 ## Epic 6 — Backend Deployment & HA Connection
-**Status:** 🔄 **IN PROGRESS** (43% complete)
+**Status:** 🔄 **IN PROGRESS** (58% complete)
 
-### ✅ Completed Tasks (6 hours)
+### ✅ Completed Tasks (12 hours)
 
 #### Task 6.14: Unified Configuration System ✅
 - **Status:** Complete (2026-03-25 11:36)
@@ -47,7 +47,32 @@ All tasks completed and merged:
 - **Tests:** 216 passing (14 new), 0 failures
 - **Change Log:** `2026-03-25_11-39-39_task-6.16-zeroconf-advertisement.md`
 
-### 🔄 Planned Tasks (37 hours remaining)
+#### Task 6.17: Scaffold custom_components/chatterbox/ ✅
+- **Status:** Complete (2026-03-25 executed)
+- **Changes:** HA custom integration package structure with metadata and minimal stubs
+- **Files:**
+  - `custom_components/chatterbox/__init__.py` — async_setup_entry/async_unload_entry stubs
+  - `custom_components/chatterbox/manifest.json` — HA 2025.x metadata with zeroconf discovery
+  - `custom_components/chatterbox/const.py` — Shared constants (DOMAIN, CONF_URL, CONF_API_KEY, etc.)
+  - `custom_components/chatterbox/strings.json` — Config flow and options flow UI labels
+  - `custom_components/chatterbox/translations/en.json` — English translations
+  - `hacs.json` — HACS custom repository metadata
+- **Tests:** All JSON/Python files validated for syntax
+- **All acceptance criteria met** ✅
+
+#### Task 6.18: Config Flow & Options Flow ✅
+- **Status:** Complete (2026-03-25 executed)
+- **Changes:** HA GUI-based setup wizard and reconfiguration with Zeroconf auto-discovery
+- **Files:**
+  - `custom_components/chatterbox/config_flow.py` — ConfigFlow + OptionsFlow classes (8.9 KB)
+  - `tests/unit/test_ha_integration/test_config_flow.py` — Comprehensive test suite (23 tests)
+  - `tests/unit/test_ha_integration/__init__.py` — Test package marker
+  - Updated `strings.json` and `translations/en.json` with config flow labels
+- **Tests:** 23 passing, 0 failures
+- **Features:** Zeroconf discovery, manual URL entry, API key validation, connection testing, options reconfiguration
+- **All acceptance criteria met** ✅
+
+### 🔄 Planned Tasks (31 hours remaining)
 
 #### Task 6.15: FastAPI Bearer Authentication Middleware
 - **Status:** Not Started
@@ -55,20 +80,6 @@ All tasks completed and merged:
 - **Depends On:** Task 6.14 ✅
 - **Description:** Add Bearer token validation middleware to FastAPI server
 - **Acceptance Criteria:** All endpoints except `/health` require auth, 401 on invalid key
-
-#### Task 6.17: Scaffold custom_components/chatterbox/
-- **Status:** Not Started
-- **Estimated:** 3 hours
-- **Depends On:** None
-- **Description:** Create HA integration package structure with metadata files
-- **Key Files:** manifest.json, hacs.json, __init__.py, const.py, strings.json
-
-#### Task 6.18: Config Flow & Options Flow
-- **Status:** Not Started
-- **Estimated:** 6 hours
-- **Depends On:** Task 6.17
-- **Description:** HA GUI setup wizard with Zeroconf auto-discovery and manual URL entry
-- **Features:** Connection testing, Zeroconf trigger, manual flow, options reconfiguration
 
 #### Task 6.19: ConversationAgent Implementation
 - **Status:** Not Started
@@ -96,8 +107,8 @@ All tasks completed and merged:
   ├─→ 6.15 (auth middleware)       ⏳ NEXT
   └─→ 6.16 (zeroconf advert.)      ✅ DONE
 
-6.17 (scaffold)                    ⏳ NEXT
-  ├─→ 6.18 (config flow)           ⏳ WAIT
+6.17 (scaffold)                    ✅ DONE
+  ├─→ 6.18 (config flow)           ✅ DONE
   │     └─→ 6.19 (ConversationAgent) ←─ 6.15
   │               └─→ 6.20 (tests)
   └─→ 6.20                └─→ 6.21
@@ -110,24 +121,24 @@ All tasks completed and merged:
 | 6.14 | Config system + API key | 6 | ✅ Done |
 | 6.15 | Auth middleware | 4 | ⏳ Next |
 | 6.16 | Zeroconf advertisement | 3 | ✅ Done |
-| 6.17 | Scaffold custom_components/ | 3 | ⏳ Next |
-| 6.18 | Config flow + options | 6 | ⏳ Wait |
+| 6.17 | Scaffold custom_components/ | 3 | ✅ Done |
+| 6.18 | Config flow + options | 6 | ✅ Done |
 | 6.19 | ConversationAgent | 8 | ⏳ Wait |
 | 6.20 | Integration tests | 4 | ⏳ Wait |
 | 6.21 | Documentation | 3 | ⏳ Wait |
-| **Total** | | **37/43** | **2 tasks done** |
+| **Total** | | **37/43** | **4 tasks done** |
 
 ### Known Issues
 
-None at this time. Both completed tasks have clean test suites with no regressions.
+None at this time. All completed tasks have clean test suites with no regressions.
 
 ### Next Steps
 
 1. Execute Task 6.15 (FastAPI Bearer auth middleware) — unblocks Task 6.19
-2. Execute Task 6.17 (Scaffold custom_components/) — unblocks Tasks 6.18, 6.20
-3. Execute Tasks 6.18, 6.19, 6.20, 6.21 in sequence
+2. Execute Task 6.19 (ConversationAgent implementation) — requires 6.15, 6.17 ✅, 6.18 ✅
+3. Execute Tasks 6.20, 6.21 in sequence
 
 ---
 
 **Parent Document:** [2026-03-25_epic-6-ha-integration-addendum.md](2026-03-25_epic-6-ha-integration-addendum.md)
-**Created:** 2026-03-25 by Agent (sequential execution of 6.14, 6.16)
+**Last Updated:** 2026-03-25 by Agent (sequential execution of 6.17, 6.18)

@@ -6,7 +6,18 @@ This module configures pytest behavior and filters deprecation warnings.
 
 import warnings
 import sys
+from pathlib import Path
 import pytest
+
+# Add custom_components to path for HA integration tests
+# Only do this if homeassistant is available (to avoid import errors in other tests)
+try:
+    import homeassistant
+    custom_components_path = Path(__file__).parent.parent / "custom_components"
+    if str(custom_components_path) not in sys.path:
+        sys.path.insert(0, str(custom_components_path))
+except ImportError:
+    pass
 
 # Configure warnings immediately when conftest is loaded
 # This needs to happen before any imports that might trigger warnings

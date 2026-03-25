@@ -1,0 +1,66 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Chatterbox",
+        "description": "Set up your Chatterbox conversation service",
+        "data": {
+          "url": "Server URL",
+          "api_key": "API Key (optional)",
+          "agent_name": "Agent Name"
+        },
+        "data_description": {
+          "url": "The URL where Chatterbox is running (e.g., http://192.168.0.100:8765)",
+          "api_key": "API key for authentication (leave blank if not required)",
+          "agent_name": "Name to identify this agent instance"
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "Confirm Chatterbox Discovery",
+        "description": "Complete the setup for Chatterbox discovered at {url}",
+        "data": {
+          "api_key": "API Key (optional)",
+          "agent_name": "Agent Name"
+        },
+        "data_description": {
+          "api_key": "API key for authentication (leave blank if not required)",
+          "agent_name": "Name to identify this agent instance"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Chatterbox server",
+      "invalid_auth": "Invalid API key",
+      "unknown": "Unknown error occurred"
+    },
+    "abort": {
+      "already_configured": "Chatterbox is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Chatterbox Options",
+        "description": "Update Chatterbox configuration",
+        "data": {
+          "url": "Server URL",
+          "api_key": "API Key (optional)",
+          "agent_name": "Agent Name"
+        },
+        "data_description": {
+          "url": "The URL where Chatterbox is running",
+          "api_key": "API key for authentication",
+          "agent_name": "Name to identify this agent instance"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Chatterbox server",
+      "invalid_auth": "Invalid API key",
+      "unknown": "Unknown error occurred"
+    },
+    "abort": {
+      "reconfigure_successful": "Chatterbox configuration updated"
+    }
+  }
+}
