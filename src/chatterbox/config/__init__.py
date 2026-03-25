@@ -86,6 +86,12 @@ from chatterbox.config.batch_processing import (
     LoggingConfig,
     WhisperConfig,
 )
+from chatterbox.config.serial_logging import (
+    RotationPolicy,
+    SerialConnectionConfig,
+    SerialLoggingSettings,
+    get_serial_logging_settings,
+)
 
 __all__ = [
     "Settings",
@@ -97,4 +103,8 @@ __all__ = [
     "ErrorHandlingConfig",
     "LoggingConfig",
     "BatchProcessingConfig",
+    "SerialLoggingSettings",
+    "RotationPolicy",
+    "SerialConnectionConfig",
+    "get_serial_logging_settings",
 ]

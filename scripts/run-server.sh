@@ -21,18 +21,6 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PID_FILE="$PROJECT_ROOT/tmp/chatterbox-server.pid"
 LOG_FILE="$PROJECT_ROOT/tmp/chatterbox-server.log"
 
-# Configuration for venv
-VENV_BIN="$PROJECT_ROOT/venv/bin"
-PYTHON_BIN="$VENV_BIN/python"
-
-# Check if venv exists
-if [[ ! -f "$PYTHON_BIN" ]]; then
-    error "Virtual environment not found at $PROJECT_ROOT/venv"
-    exit 1
-fi
-
-SERVER_CMD="PYTHONPATH=$PROJECT_ROOT $PYTHON_BIN -m src.main"
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -40,12 +28,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Ensure we're in the project root
-cd "$PROJECT_ROOT"
-
-# Create tmp directory if it doesn't exist
-mkdir -p tmp
-
+# Helper functions
 log() {
     echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $*" >&2
 }
@@ -61,6 +44,33 @@ success() {
 warning() {
     echo -e "${YELLOW}WARNING:${NC} $*" >&2
 }
+
+# Configuration for venv
+VENV_BIN="$PROJECT_ROOT/venv/bin"
+APP_BIN="$VENV_BIN/chatterbox"
+
+# Check if venv exists
+if [[ ! -f "$APP_BIN" ]]; then
+    venv0="$PROJECT_ROOT/venv"
+    # redefine variables in top-level scope
+    TOP_ROOT=$(cd $PROJECT_ROOT/../..; pwd)
+    VENV_BIN="$TOP_ROOT/venv/bin"
+    APP_BIN="$VENV_BIN/chatterbox"
+    PID_FILE="$TOP_ROOT/logs/chatterbox-server.pid"
+    LOG_FILE="$TOP_ROOT/logs/chatterbox-server.log"
+    if [[ ! -f "$APP_BIN" ]]; then
+        error "Virtual environment not found at $venv0"
+        exit 1
+    fi
+fi
+
+SERVER_CMD="PYTHONPATH=$PROJECT_ROOT $APP_BIN"
+
+# Ensure we're in the project root
+cd "$PROJECT_ROOT"
+
+# Create tmp directory if it doesn't exist
+mkdir -p tmp
 
 # Check if process is running
 is_running() {
@@ -172,7 +182,7 @@ cmd_start() {
 
     # Start server with output redirection
     # Use env to set PYTHONPATH properly for background process
-    nohup env PYTHONPATH="$PROJECT_ROOT" "$PYTHON_BIN" -m src.main >> "$LOG_FILE" 2>&1 &
+    nohup env PYTHONPATH="$PROJECT_ROOT" "$APP_BIN" serve >> "$LOG_FILE" 2>&1 &
     local pid=$!
 
     # Initial wait for process startup

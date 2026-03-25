@@ -46,3 +46,27 @@ def pytest_configure(config):
         "filterwarnings",
         "ignore:.*LangChain agents will continue to be supported.*",
     )
+
+
+# Async database fixtures
+try:
+    import pytest_asyncio
+    from chatterbox.persistence.backends.sqlite import SQLiteStorage
+
+    @pytest_asyncio.fixture
+    async def storage():
+        """Create an in-memory SQLite storage with tables."""
+        store = SQLiteStorage(database_url="sqlite+aiosqlite:///:memory:")
+        await store.initialize()
+        await store.create_tables()
+        yield store
+        await store.shutdown()
+
+    @pytest_asyncio.fixture
+    async def async_session(storage):
+        """Get an async session from storage."""
+        async with storage.get_session() as session:
+            yield session
+
+except ImportError:
+    pass
