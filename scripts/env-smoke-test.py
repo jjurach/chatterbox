@@ -558,26 +558,36 @@ class SmokeTest:
                                 details=f"Found {len(models)} models"
                             ))
 
-                            # Check for default model
-                            default_model = "llama3.1:8b"
-                            has_default = any(default_model in m.get("name", "") for m in models)
+                            # Check for preferred model (llama-pro:latest) or fallback
+                            preferred_models = ["llama-pro:latest", "llama3.1:8b"]
+                            available_model = None
+                            for model in preferred_models:
+                                if any(model in m.get("name", "") for m in models):
+                                    available_model = model
+                                    break
 
-                            if has_default:
+                            if available_model:
                                 self.log_test(
-                                    f"Default model ({default_model}) available",
+                                    f"Preferred model ({available_model}) available",
                                     True
                                 )
                                 self.results.append(TestResult(
-                                    name=f"Default model ({default_model}) available",
+                                    name=f"Preferred model ({available_model}) available",
                                     passed=True,
-                                    component="ollama"
+                                    component="ollama",
+                                    details=f"Using: {available_model}"
                                 ))
-                                return True
+
+                                # Test 6b: Actually call the model with a test question
+                                success = await self._test_ollama_model_call(
+                                    session, ollama_base_url, available_model
+                                )
+                                return success
                             else:
-                                warning = f"Default model {default_model} not found. Available: {', '.join(model_names[:3])}"
-                                self.log_test(f"Default model ({default_model}) available", False, error=warning)
+                                warning = f"No preferred model found. Available: {', '.join(model_names[:5])}"
+                                self.log_test("Preferred model available", False, error=warning)
                                 self.results.append(TestResult(
-                                    name=f"Default model ({default_model}) available",
+                                    name="Preferred model available",
                                     passed=False,
                                     component="ollama",
                                     error=warning
@@ -629,6 +639,92 @@ class SmokeTest:
             self.log_test("Ollama connection test", False, error=error_msg)
             self.results.append(TestResult(
                 name="Ollama connection test",
+                passed=False,
+                component="ollama",
+                error=error_msg
+            ))
+            return False
+
+    async def _test_ollama_model_call(self, session, base_url: str, model: str) -> bool:
+        """Helper: Test Ollama model by asking a question.
+
+        Args:
+            session: aiohttp ClientSession
+            base_url: Ollama base URL
+            model: Model name to test
+
+        Returns:
+            True if model responds correctly, False otherwise
+        """
+        try:
+            import aiohttp
+
+            # Remove /v1 suffix if present for the generate endpoint
+            api_url = base_url.replace("/v1", "")
+
+            test_question = "How many are one and a quarter dozen?"
+
+            payload = {
+                "model": model,
+                "prompt": test_question,
+                "stream": False,
+            }
+
+            async with session.post(
+                f"{api_url}/api/generate",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    response_text = data.get("response", "").strip()
+
+                    # Test passes if model responds with any reasonable answer
+                    # (contains a number, or shows reasoning about "dozen")
+                    success = len(response_text) > 10 and (
+                        any(char.isdigit() for char in response_text) or
+                        "dozen" in response_text.lower()
+                    )
+
+                    detail = f"Q: {test_question}\nA: {response_text[:100]}"
+                    self.log_test(
+                        "Model responds to query",
+                        success,
+                        details=detail if self.verbose else f"Response: {response_text[:50]}..."
+                    )
+                    self.results.append(TestResult(
+                        name="Model responds to query",
+                        passed=success,
+                        component="ollama",
+                        details=detail if success else f"Got: {response_text[:100]}"
+                    ))
+                    return success
+                else:
+                    error = f"Ollama API returned status {resp.status}"
+                    self.log_test("Model responds to query", False, error=error)
+                    self.results.append(TestResult(
+                        name="Model responds to query",
+                        passed=False,
+                        component="ollama",
+                        error=error
+                    ))
+                    return False
+
+        except asyncio.TimeoutError:
+            error = f"Model call timed out (>{30}s)"
+            self.log_test("Model responds to query", False, error=error)
+            self.results.append(TestResult(
+                name="Model responds to query",
+                passed=False,
+                component="ollama",
+                error=error
+            ))
+            return False
+        except Exception as e:
+            error_msg = str(e)
+            self.log_test("Model responds to query", False, error=error_msg)
+            self.results.append(TestResult(
+                name="Model responds to query",
                 passed=False,
                 component="ollama",
                 error=error_msg
