@@ -4,7 +4,7 @@
 **Epic Title:** Persistent Conversation Context with SQLite Backend
 **Status:** Planned
 **Target Completion:** 2026-05-12
-**Estimated Duration:** 1 week (~38 hours)
+**Estimated Duration:** 1 week (~41 hours including weather tool integration)
 **Last Updated:** 2026-03-24
 **Prerequisite:** Mellona integration (HIGH PRIORITY - must complete BEFORE Epic 5)
 **Backend Strategy:** SQLite for Phase 1; PostgreSQL migration path for future scalability
@@ -749,6 +749,63 @@ await storage.add_message(conversation_id, "assistant", response)
 
 ---
 
+### Task 5.11b: Mellona Weather Tool Integration
+**Objective:** Integrate mellona's weather tool into the agent system
+**Estimated Hours:** 3
+**Depends On:** Task 5.1 (Storage backend selected)
+**Acceptance Criteria:**
+- [ ] Weather tool imported from mellona
+- [ ] Tool registered in chatterbox tool registry
+- [ ] Weather queries stored in conversation history
+- [ ] Test: Agent can answer "What's the weather in [location]?"
+- [ ] Tool calls logged with location and result
+- [ ] Documentation: how to use weather tool in conversations
+
+**Implementation Details:**
+
+**Add to Tool Registry:**
+```python
+# In src/chatterbox/tools/registry.py
+from mellona.tools.weather import WeatherTool
+
+def get_available_tools() -> List[Tool]:
+    tools = [
+        # ... existing tools ...
+        WeatherTool.TOOL_DEFINITION,  # Add weather tool
+    ]
+    return tools
+```
+
+**Weather Tool Usage:**
+```python
+# Tool enables queries like:
+# "What's the weather in Kansas City?"
+# "Tell me the temperature in Paris, France"
+# "Is it raining in London?"
+
+# Tool returns:
+# - location_name (resolved)
+# - temperature_c, temperature_f
+# - conditions (Clear, Cloudy, Rainy, etc.)
+# - humidity_percent
+# - wind_speed_kmh, wind_speed_mph
+```
+
+**Message Storage:**
+- User message: "What's the weather in Kansas City?"
+- Tool call logged: {tool: "get_weather", location: "Kansas City"}
+- Tool result stored: {temperature_f: 72, conditions: "Partly cloudy", ...}
+- Assistant message: "It's currently 72°F and partly cloudy in Kansas City..."
+
+**Testing Plan:**
+- Test weather query with known locations
+- Verify results are stored in conversation history
+- Test with various location formats (City, City State, City Country)
+- Verify tool error handling for invalid locations
+- Test conversation context includes weather results
+
+---
+
 ### Task 5.12: Deployment & Migration
 **Objective:** Prepare for production deployment
 **Estimated Hours:** 4
@@ -906,12 +963,17 @@ await storage.add_message(conversation_id, "assistant", response)
 - Task 5.7: Multi-user isolation (5 hrs)
 - Task 5.8: Storage abstraction (1 hr - carried over)
 
-**Final days (5 hours):**
-- Task 5.8: Storage abstraction (3 hrs - continued)
-- Task 5.9: LLM integration (6 hrs - parallel)
-- Task 5.10-5.12: Testing, docs, deployment (8 hrs)
+**Day 5+ (9 hours):**
+- Task 5.8: Storage abstraction (3 hrs)
+- Task 5.9: LLM integration (6 hrs)
+- Task 5.11b: Weather tool integration (3 hrs - parallel with 5.9)
 
-**Total: ~38 hours (~1 week at 40 hrs/week)**
+**Final days (8 hours):**
+- Task 5.10: Testing (8 hrs)
+- Task 5.11: API Documentation (4 hrs)
+- Task 5.12: Deployment (4 hrs)
+
+**Total: ~41 hours (~1 week at 40 hrs/week, includes weather tool)**
 
 ---
 
