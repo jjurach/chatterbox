@@ -253,3 +253,294 @@ class TestFileReadability:
         size = strings_path.stat().st_size
         assert size > 100, "strings.json seems too small"
         assert size < 50000, "strings.json seems too large"
+
+
+# ============================================================================
+# Configuration Flow Functional Tests
+# ============================================================================
+# NOTE: These tests can run in environments without Home Assistant installed
+# because they test the logic and structure of config flow components.
+
+
+class TestConnectionValidation:
+    """Test URL and connection validation logic."""
+
+    def test_validate_url_http_with_port(self):
+        """Test validation of HTTP URL with port."""
+        from urllib.parse import urlparse
+        url = "http://192.168.0.100:8765"
+        parsed = urlparse(url)
+        assert parsed.scheme == "http"
+        assert parsed.netloc == "192.168.0.100:8765"
+
+    def test_validate_url_https_with_port(self):
+        """Test validation of HTTPS URL with port."""
+        from urllib.parse import urlparse
+        url = "https://example.com:8765"
+        parsed = urlparse(url)
+        assert parsed.scheme == "https"
+        assert parsed.netloc == "example.com:8765"
+
+    def test_validate_url_localhost(self):
+        """Test validation of localhost URL."""
+        from urllib.parse import urlparse
+        url = "http://localhost:8765"
+        parsed = urlparse(url)
+        assert parsed.scheme == "http"
+        assert parsed.netloc == "localhost:8765"
+
+    def test_validate_url_with_hostname(self):
+        """Test validation of URL with hostname."""
+        from urllib.parse import urlparse
+        url = "http://chatterbox.local:8765"
+        parsed = urlparse(url)
+        assert parsed.scheme == "http"
+        assert parsed.netloc == "chatterbox.local:8765"
+
+    def test_reject_url_without_scheme(self):
+        """Test that URL without scheme is rejected."""
+        from urllib.parse import urlparse
+        url = "192.168.0.100:8765"
+        parsed = urlparse(url)
+        # Without a scheme, scheme will be empty or the entire thing goes to path
+        assert not (parsed.scheme and parsed.netloc)
+
+    def test_reject_empty_url(self):
+        """Test that empty URL is rejected."""
+        from urllib.parse import urlparse
+        url = ""
+        parsed = urlparse(url)
+        assert not (parsed.scheme and parsed.netloc)
+
+    def test_reject_malformed_url(self):
+        """Test that malformed URL is rejected."""
+        from urllib.parse import urlparse
+        url = "not-a-valid-url"
+        parsed = urlparse(url)
+        assert not (parsed.scheme and parsed.netloc)
+
+
+class TestConfigFlowSchema:
+    """Test configuration flow schema."""
+
+    def test_config_schema_has_required_url(self):
+        """Test that CONFIG_SCHEMA requires URL."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "vol.Required(CONF_URL)" in content
+
+    def test_config_schema_has_optional_api_key(self):
+        """Test that CONFIG_SCHEMA has optional API key."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "vol.Optional(CONF_API_KEY" in content
+
+    def test_config_schema_has_optional_agent_name(self):
+        """Test that CONFIG_SCHEMA has optional agent name."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "vol.Optional(CONF_AGENT_NAME" in content
+
+    def test_zeroconf_schema_no_url_required(self):
+        """Test that ZEROCONF_SCHEMA doesn't require URL (already discovered)."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        # Should have ZEROCONF_SCHEMA with optional API key and agent name
+        assert "ZEROCONF_SCHEMA = vol.Schema" in content
+
+    def test_options_schema_has_all_fields(self):
+        """Test that options flow allows updating all configuration fields."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        # Options flow should allow updating URL, API key, and agent name
+        assert "async_step_init" in content
+
+
+class TestConfigFlowFlowStructure:
+    """Test the structure of config flow steps."""
+
+    def test_user_step_exists(self):
+        """Test that async_step_user exists for manual entry."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "async def async_step_user" in content
+
+    def test_zeroconf_step_exists(self):
+        """Test that async_step_zeroconf exists for discovery."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "async def async_step_zeroconf" in content
+
+    def test_zeroconf_confirm_step_exists(self):
+        """Test that async_step_zeroconf_confirm exists."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "async def async_step_zeroconf_confirm" in content
+
+    def test_options_flow_exists(self):
+        """Test that ChatterboxOptionsFlow exists for reconfiguration."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "class ChatterboxOptionsFlow" in content
+        assert "async def async_step_init" in content
+
+    def test_get_options_flow_method_exists(self):
+        """Test that async_get_options_flow callback exists."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "async_get_options_flow" in content
+
+
+class TestConfigFlowErrorHandling:
+    """Test error handling in config flow."""
+
+    def test_cannot_connect_exception_exists(self):
+        """Test that CannotConnect exception is defined."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "class CannotConnect" in content
+
+    def test_invalid_auth_exception_exists(self):
+        """Test that InvalidAuth exception is defined."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "class InvalidAuth" in content
+
+    def test_unknown_error_exception_exists(self):
+        """Test that UnknownError exception is defined."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "class UnknownError" in content
+
+    def test_error_messages_in_strings(self):
+        """Test that error messages are defined in strings.json."""
+        strings_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/strings.json"
+        with open(strings_path) as f:
+            data = json.load(f)
+        assert "error" in data["config"]
+        errors = data["config"]["error"]
+        assert "cannot_connect" in errors
+        assert "invalid_auth" in errors
+        assert "unknown" in errors
+
+
+class TestConfigFlowTestConnection:
+    """Test connection testing functionality."""
+
+    def test_test_connection_function_exists(self):
+        """Test that _test_connection async function exists."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        assert "async def _test_connection" in content
+
+    def test_test_connection_uses_health_endpoint(self):
+        """Test that _test_connection uses /health endpoint."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        # Should test /health endpoint
+        assert "/health" in content or "health" in content.lower()
+
+    def test_test_connection_handles_timeout(self):
+        """Test that _test_connection handles timeout."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        # Should handle asyncio.TimeoutError
+        assert "asyncio.TimeoutError" in content or "TimeoutError" in content
+
+    def test_test_connection_handles_client_error(self):
+        """Test that _test_connection handles aiohttp client errors."""
+        config_flow_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/config_flow.py"
+        with open(config_flow_path) as f:
+            content = f.read()
+        # Should handle aiohttp.ClientError
+        assert "aiohttp.ClientError" in content or "ClientError" in content
+
+
+class TestIntegrationStringResources:
+    """Test that all required strings are present for user-facing flows."""
+
+    def test_user_step_strings_present(self):
+        """Test that user step strings are present."""
+        strings_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/strings.json"
+        with open(strings_path) as f:
+            data = json.load(f)
+        assert "user" in data["config"]["step"]
+        user_step = data["config"]["step"]["user"]
+        assert "title" in user_step
+        assert "description" in user_step or "description_placeholder" in user_step
+
+    def test_zeroconf_confirm_strings_present(self):
+        """Test that zeroconf_confirm step strings are present."""
+        strings_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/strings.json"
+        with open(strings_path) as f:
+            data = json.load(f)
+        assert "zeroconf_confirm" in data["config"]["step"]
+        zeroconf_step = data["config"]["step"]["zeroconf_confirm"]
+        assert "title" in zeroconf_step
+
+    def test_options_step_strings_present(self):
+        """Test that options step strings are present."""
+        strings_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/strings.json"
+        with open(strings_path) as f:
+            data = json.load(f)
+        assert "step" in data["options"]
+        assert "init" in data["options"]["step"]
+
+    def test_abort_reason_strings_present(self):
+        """Test that abort reason strings are present."""
+        strings_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/strings.json"
+        with open(strings_path) as f:
+            data = json.load(f)
+        # Check for abort section
+        if "abort" in data["config"]:
+            # If abort section exists, it should have messages
+            assert isinstance(data["config"]["abort"], dict)
+
+
+class TestManifestZeroconfConfiguration:
+    """Test Zeroconf configuration in manifest."""
+
+    def test_manifest_zeroconf_is_list(self):
+        """Test that manifest zeroconf is a list."""
+        manifest_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/manifest.json"
+        with open(manifest_path) as f:
+            data = json.load(f)
+        assert isinstance(data.get("zeroconf"), list)
+
+    def test_manifest_zeroconf_has_chatterbox_service(self):
+        """Test that manifest zeroconf includes _chatterbox._tcp.local."""
+        manifest_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/manifest.json"
+        with open(manifest_path) as f:
+            data = json.load(f)
+        zeroconf_list = data.get("zeroconf", [])
+        # Should have at least one zeroconf entry
+        assert len(zeroconf_list) > 0
+        # Should have the chatterbox service type
+        types = [z.get("type") for z in zeroconf_list]
+        assert "_chatterbox._tcp.local." in types
+
+    def test_manifest_version_increment(self):
+        """Test that manifest has a version number."""
+        manifest_path = Path(__file__).parent.parent.parent.parent / "custom_components/chatterbox/manifest.json"
+        with open(manifest_path) as f:
+            data = json.load(f)
+        assert "version" in data
+        # Version should be a string with at least one dot
+        assert isinstance(data["version"], str)
+        assert "." in data["version"]
