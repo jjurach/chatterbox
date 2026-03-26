@@ -46,9 +46,12 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware
 
+from chatterbox.config import get_settings
 from chatterbox.conversation.entity import (
     ChatterboxConversationEntity,
     ConversationInput,
@@ -100,6 +103,79 @@ class HealthResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Authentication middleware
+# ---------------------------------------------------------------------------
+
+
+class BearerTokenMiddleware(BaseHTTPMiddleware):
+    """FastAPI middleware that validates Bearer token in Authorization header.
+
+    All endpoints except GET /health require a valid Authorization header
+    with format "Bearer <api_key>". The api_key is read from Settings.api_key.
+
+    Returns:
+        HTTP 401 with JSON error if token is missing or invalid.
+    """
+
+    # Sentinel value to distinguish "no api_key provided" from "empty string"
+    _UNSET = object()
+
+    def __init__(self, app: FastAPI, api_key: str | object = _UNSET) -> None:
+        """Initialize middleware with optional API key override.
+
+        Args:
+            app: The FastAPI application instance.
+            api_key: Optional API key for testing. If _UNSET (default), uses Settings.api_key.
+                    If empty string (""), disables authentication.
+        """
+        super().__init__(app)
+        self.api_key = api_key
+
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
+        """Validate Bearer token for protected endpoints.
+
+        Args:
+            request: The incoming HTTP request.
+            call_next: The next middleware or route handler.
+
+        Returns:
+            The response from the next handler, or a 401 JSON error.
+        """
+        # /health is always allowed
+        if request.url.path == "/health" and request.method == "GET":
+            return await call_next(request)
+
+        # Get the API key (from init or Settings)
+        api_key = self.api_key
+        if api_key is self._UNSET:
+            settings = get_settings()
+            api_key = settings.api_key
+
+        # If no API key is configured, skip authentication (useful for dev/test)
+        if not api_key:
+            return await call_next(request)
+
+        # All other endpoints require Bearer token
+        auth_header = request.headers.get("Authorization", "")
+
+        # Validate Bearer token format and value
+        if not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing or invalid Authorization header"},
+            )
+
+        token = auth_header[7:]  # Remove "Bearer " prefix
+        if token != api_key:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid authentication credentials"},
+            )
+
+        return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
 
@@ -108,6 +184,7 @@ def create_conversation_app(
     entity: ChatterboxConversationEntity,
     port: int = 8765,
     enable_zeroconf: bool = True,
+    api_key: str | None = None,
 ) -> FastAPI:
     """Create a FastAPI application wrapping *entity*.
 
@@ -117,6 +194,8 @@ def create_conversation_app(
             dispatcher before passing the entity in.
         port: Port number for Zeroconf advertisement (default 8765).
         enable_zeroconf: Whether to advertise via Zeroconf/mDNS (default True).
+        api_key: Optional API key for Bearer token authentication. If None,
+            uses Settings.api_key. For testing only.
 
     Returns:
         A configured ``FastAPI`` application ready to be served or used in
@@ -158,6 +237,9 @@ def create_conversation_app(
         version="0.1.0",
         lifespan=lifespan,
     )
+
+    # Add Bearer token authentication middleware
+    app.add_middleware(BearerTokenMiddleware, api_key=api_key)
 
     # ------------------------------------------------------------------
     # Routes

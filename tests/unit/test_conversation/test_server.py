@@ -47,9 +47,21 @@ def _make_entity(loop_response: str = "Default response") -> ChatterboxConversat
     return entity
 
 
-async def _client(entity: ChatterboxConversationEntity) -> AsyncClient:
-    """Return an AsyncClient bound to the app for *entity*."""
-    app = create_conversation_app(entity)
+async def _client(
+    entity: ChatterboxConversationEntity, api_key: str = ""
+) -> AsyncClient:
+    """Return an AsyncClient bound to the app for *entity*.
+
+    For backward compatibility with existing tests, if api_key is not specified,
+    we disable authentication by passing api_key="" to the app factory.
+    This allows old tests to work without modification.
+
+    Args:
+        entity: The conversation entity.
+        api_key: Optional API key for authentication. Empty string "" (default) disables auth
+                 for backward compatibility. Pass a non-empty string to enable auth with that key.
+    """
+    app = create_conversation_app(entity, api_key=api_key, enable_zeroconf=False)
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
@@ -339,3 +351,165 @@ async def test_health_endpoint_with_zeroconf() -> None:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client_with_zc:
                 resp = await client_with_zc.get("/health")
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Bearer Token Authentication
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_health_endpoint_no_auth_required() -> None:
+    """Test that GET /health does not require authentication."""
+    entity = _make_entity()
+    app = create_conversation_app(entity, api_key="secret-key", enable_zeroconf=False)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+
+
+@pytest.mark.anyio
+async def test_post_conversation_with_valid_bearer_token() -> None:
+    """Test that POST /conversation accepts valid Bearer token."""
+    entity = _make_entity("OK")
+    app = create_conversation_app(entity, api_key="secret-key", enable_zeroconf=False)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/conversation",
+            json={"text": "Hello"},
+            headers={"Authorization": "Bearer secret-key"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["response_text"] == "OK"
+
+
+@pytest.mark.anyio
+async def test_post_conversation_with_invalid_bearer_token() -> None:
+    """Test that POST /conversation rejects invalid Bearer token."""
+    entity = _make_entity()
+    app = create_conversation_app(entity, api_key="secret-key", enable_zeroconf=False)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/conversation",
+            json={"text": "Hello"},
+            headers={"Authorization": "Bearer wrong-key"},
+        )
+    assert resp.status_code == 401
+    body = resp.json()
+    assert "detail" in body
+    assert "Invalid authentication credentials" in body["detail"]
+
+
+@pytest.mark.anyio
+async def test_post_conversation_missing_auth_header() -> None:
+    """Test that POST /conversation rejects request without Authorization header."""
+    entity = _make_entity()
+    app = create_conversation_app(entity, api_key="secret-key", enable_zeroconf=False)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/conversation",
+            json={"text": "Hello"},
+        )
+    assert resp.status_code == 401
+    body = resp.json()
+    assert "detail" in body
+    assert "Missing or invalid Authorization header" in body["detail"]
+
+
+@pytest.mark.anyio
+async def test_post_conversation_malformed_bearer_header() -> None:
+    """Test that POST /conversation rejects malformed Authorization header."""
+    entity = _make_entity()
+    app = create_conversation_app(entity, api_key="secret-key", enable_zeroconf=False)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/conversation",
+            json={"text": "Hello"},
+            headers={"Authorization": "NotBearer secret-key"},
+        )
+    assert resp.status_code == 401
+    body = resp.json()
+    assert "Missing or invalid Authorization header" in body["detail"]
+
+
+@pytest.mark.anyio
+async def test_delete_conversation_requires_auth() -> None:
+    """Test that DELETE /conversation/{id} requires valid Bearer token."""
+    entity = _make_entity()
+    entity._histories["sess-1"] = [{"role": "user", "content": "hello"}]
+    app = create_conversation_app(entity, api_key="secret-key", enable_zeroconf=False)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Without auth
+        resp = await client.delete("/conversation/sess-1")
+        assert resp.status_code == 401
+
+        # With valid auth
+        resp = await client.delete(
+            "/conversation/sess-1",
+            headers={"Authorization": "Bearer secret-key"},
+        )
+        assert resp.status_code == 204
+
+
+@pytest.mark.anyio
+async def test_delete_all_conversations_requires_auth() -> None:
+    """Test that DELETE /conversation requires valid Bearer token."""
+    entity = _make_entity()
+    entity._histories["a"] = []
+    entity._histories["b"] = []
+    app = create_conversation_app(entity, api_key="secret-key", enable_zeroconf=False)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Without auth
+        resp = await client.delete("/conversation")
+        assert resp.status_code == 401
+
+        # With valid auth
+        resp = await client.delete(
+            "/conversation",
+            headers={"Authorization": "Bearer secret-key"},
+        )
+        assert resp.status_code == 204
+        assert entity._histories == {}
+
+
+@pytest.mark.anyio
+async def test_bearer_token_case_sensitive() -> None:
+    """Test that Bearer token is case-sensitive."""
+    entity = _make_entity()
+    app = create_conversation_app(entity, api_key="MySecretKey123", enable_zeroconf=False)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Wrong case should fail
+        resp = await client.post(
+            "/conversation",
+            json={"text": "Hello"},
+            headers={"Authorization": "Bearer mysecretkey123"},
+        )
+        assert resp.status_code == 401
+
+        # Correct case should succeed
+        resp = await client.post(
+            "/conversation",
+            json={"text": "Hello"},
+            headers={"Authorization": "Bearer MySecretKey123"},
+        )
+        assert resp.status_code == 200
+
+
+@pytest.mark.anyio
+async def test_empty_bearer_token() -> None:
+    """Test that empty Bearer token is rejected."""
+    entity = _make_entity()
+    app = create_conversation_app(entity, api_key="secret-key", enable_zeroconf=False)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/conversation",
+            json={"text": "Hello"},
+            headers={"Authorization": "Bearer "},
+        )
+    assert resp.status_code == 401
+    assert "Invalid authentication credentials" in resp.json()["detail"]
