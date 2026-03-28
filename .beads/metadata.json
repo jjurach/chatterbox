@@ -1,8 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_server_port": 3307,
-  "dolt_database": "beads_chatterbox",
-  "project_id": "51670ff3-4b80-44c8-8ee3-42fcef912835"
-}
