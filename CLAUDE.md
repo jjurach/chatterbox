@@ -4,7 +4,7 @@ Always refer to the instructions and guidelines in **[AGENTS.md](AGENTS.md)** be
 
 ## System Architecture
 
-- **Agent Kernel:** [docs/system-prompts/README.md](docs/system-prompts/README.md)
+- **Agent Kernel:** [README.md](README.md)
 - **Project Architecture:** [docs/architecture.md](docs/architecture.md)
 - **Implementation Patterns:** [docs/implementation-reference.md](docs/implementation-reference.md)
 - **Development Workflows:** [docs/workflows.md](docs/workflows.md)
